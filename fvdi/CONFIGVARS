@@ -46,7 +46,7 @@ DRIVER_INCLUDES = -I$(top_srcdir)/include -I$(top_srcdir)/drivers/include
 ASFLAGS = $(CPUOPTS) $(DRIVER_INCLUDES)
 
 # General compilation and optimization options (CFLAGS)
-WARNINGS = -Wall -W -Wunused -Wundef -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Wdeclaration-after-statement
+WARNINGS = -Wall -W -Wunused -Wundef -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Wno-declaration-after-statement
 # Warnings to use when compiling FreeType2 code
 # we do not intend to fix any warnings we inherit from the FreeType2 sources
 # consequently, we suppress most warnings here
