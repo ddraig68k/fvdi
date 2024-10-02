@@ -54,6 +54,22 @@ static void set_colour(long paletteIndex, long red, long green, long blue)
     indices[shortInd] = 1;
 }
 
+// In TOS 4, Atari changed the parts of the default 16 color palette that specified light versions of the
+// base colors to use dark versions instead. This is reflected in the values for default_vdi_colors[].
+// However, we are writing for something closer to TOS 2, so we want to use the light colors instead.
+// In each of the following rows, the first value is the default_vdi_colors[] palette index to change.
+// The next three values are the expected current RGB values in default_vdi_colors[]. We make sure these
+// match before changing the palette entry. The last three items are new RGB values.
+
+short color_overrides[][7] = {
+        { 10, 667,   0,   0, 1000,  562,  562 }, // light red
+        { 11,   0, 667,   0,  562, 1000,  562 }, // light green
+        { 12,   0,   0, 667,  562,  562, 1000 }, // light blue
+        { 13,   0, 667, 667,  562, 1000, 1000 }, // light cyan
+        { 14, 667, 667,   0, 1000, 1000,  562 }, // light yellow
+        { 15, 667,   0, 667, 1000,  562, 1000 }, // light magenta
+};
+
 void CDECL
 c_set_colours(Virtual *UNUSED(vwk), long start, long entries, unsigned short *requested, Colour palette[])
 {
@@ -95,6 +111,21 @@ c_set_colours(Virtual *UNUSED(vwk), long start, long entries, unsigned short *re
         // In this case, we are being asked to set the hardware palette.
         // For each entry, we have the requested red, green and blue VDI values. A VDI
         // color value ranges from 0 to 1000.
+
+        // As mentioned above, use the TOS 2 light colors instead of the dark ones.
+        for (int idx = 0; idx < 6; idx++) {
+            short palette_index = color_overrides[idx][0];
+            uint16_t match_r = color_overrides[idx][1], match_g = color_overrides[idx][2], match_b = color_overrides[idx][3];
+            uint16_t current_r = requested[palette_index * 3];
+            uint16_t current_g = requested[palette_index * 3 + 1];
+            uint16_t current_b = requested[palette_index * 3 + 2];
+
+            if ((match_r == current_r) && (match_g == current_g) && (match_b == current_b)) {
+                requested[palette_index * 3] = color_overrides[idx][4];
+                requested[palette_index * 3 + 1] = color_overrides[idx][5];
+                requested[palette_index * 3 + 2] = color_overrides[idx][6];
+            }
+        }
 
         for (i = 0; i < entries; i++) {
             //PRINTF(("    entry %d: red = %d, green = %d, blue = %d\n", i, requested[0], requested[1], requested[2]));

@@ -82,7 +82,7 @@ static int xosera_draw_horiz_line(volatile xmreg_t *const xosera_ptr, long x1, l
     uint16_t dest_addr = pf_words_per_line * y + (x1 >> 2);
 
     uint16_t exp_line_style[4];
-    expand_word(exp_line_style, line_style, 0xF, 0x0, 0);
+    expand_word(exp_line_style, line_style);
 
     // If all four words of the expanded line style are the same, then we can do a single BLIT.
     if (is_fast_pattern(exp_line_style)) {
@@ -175,7 +175,10 @@ static int xosera_draw_vertical_line(volatile xmreg_t *const xosera_ptr, long x,
 long CDECL c_line_draw(Virtual *vwk, long x1, long y1, long x2, long y2, long line_style_in, long colour, long mode)
 {
     uint16_t line_style = (uint16_t) (line_style_in & 0xFFFF);
-
+#ifdef FVDI_DEBUG
+    PRINTF(("c_line_draw(): vwk = %p, x1 = %ld, y1 = %ld, x2 = %ld, y2 = %ld, style = 0x%04lx, mode = %ld (%s)\n",
+            vwk, x1 & 0xFFFF, y1 & 0xFFFF, x2 & 0xFFFF, y2 & 0xFFFF, line_style_in & 0xFFFF, mode, mode2string(mode)));
+#endif
     if ((long) vwk & 1) {
         long table_mode = y1 & 0xFFFF;
         if (table_mode == 0) { /* special mode 0 */

@@ -45,8 +45,7 @@ const char *mode2string(long mode);
 
 const char *operation2string(long operation);
 
-void expand_word(uint16_t *dest, uint16_t val, int fg, int bg, int reverse);
-
+void expand_word(uint16_t *dest, uint16_t val);
 static inline int is_screen(struct wk_ *wk, MFDB *mfdb)
 {
     return (mfdb == NULL || mfdb->address == NULL || mfdb->address == wk->screen.mfdb.address) ? 1 : 0;
@@ -96,7 +95,8 @@ static inline uint16_t compute_word_width(uint16_t x0, uint16_t width)
 
 void do_blit(volatile xmreg_t *xosera_ptr, BlitParameters *p);
 
-void dump_fill_area_params(long x0, long y0, long w, long h, long colour, long mode, short pattern[]);
+void dump_fill_area_params(long x0, long y0, long w, long h, long colour, long mode, long interior_style);
+void dump_MFDB(const char *name, const MFDB *m);
 
 #ifdef __GNUC__
 #  define UNUSED(x) UNUSED_ ## x __attribute__((__unused__))

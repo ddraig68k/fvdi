@@ -18,7 +18,7 @@ c_write_pixel(Virtual *vwk, MFDB *dst, long x, long y, long colour)
 {
     static uint16_t offscreen_y_offset = 0;
 
-    if ((long) vwk & 1) return 0;
+    if ((long) vwk & 1) return -1;
     if (offscreen_y_offset == 0) offscreen_y_offset = vwk->real_address->screen.mfdb.height;
 
     volatile xmreg_t *const xosera_ptr = xv_prep_dyn(me->device);

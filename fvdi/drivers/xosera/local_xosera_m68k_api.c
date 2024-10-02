@@ -7,6 +7,7 @@
 #include "xosera_m68k_api.h"
 
 bool local_xosera_init(volatile xmreg_t *const xosera_ptr, xosera_mode_t init_mode);
+void local_xosera_set_pointer(volatile xmreg_t *const xosera_ptr, int16_t x, int16_t y, uint16_t colormap_index);
 
 #define SYNC_RETRIES 250        // ~1/4 second
 
@@ -72,4 +73,34 @@ bool local_xosera_init(volatile xmreg_t *const xosera_ptr, xosera_mode_t init_mo
     }
 
     return detected;
+}
+
+void local_xosera_set_pointer(volatile xmreg_t *const xosera_ptr, int16_t x, int16_t y, uint16_t colormap_index)
+{
+    uint8_t ws = xm_getbl(FEATURE) & FEATURE_MONRES_F;        // 0 = 640x480
+
+    // offscreen pixels plus 6 pixel "head start"
+    x = x + (ws ? MODE_848x480_LEFTEDGE - POINTER_H_OFFSET : MODE_640x480_LEFTEDGE - POINTER_H_OFFSET);
+    // make sure doesn't wrap back onscreen due to limited bits in POINTER_H
+    if (x < 0 || x > MODE_848x480_TOTAL_H)
+    {
+        x = MODE_848x480_TOTAL_H;
+    }
+
+    // make sure doesn't wrap back onscreen due to limited bits in POINTER_V
+    if (y < -32 || y > MODE_640x480_V)
+    {
+        y = MODE_640x480_V;
+    }
+    else if (y < 0)
+    {
+        // special handling for partially off top (offset to before V wrap)
+        y = y + (ws ? MODE_848x480_TOTAL_V : MODE_640x480_TOTAL_V);
+    }
+
+    // wait for start of hblank to hide change
+    xwait_not_hblank();
+    xwait_hblank();
+    xreg_setw(POINTER_H, x);
+    xreg_setw(POINTER_V, colormap_index | y);
 }

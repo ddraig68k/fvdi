@@ -9,21 +9,21 @@
 
 #undef FVDI_DEBUG
 
-void expand_word(uint16_t *dest, uint16_t val, int fg, int bg, int reverse)
+extern uint16_t expand_table[];
+
+void expand_word(uint16_t *dest, uint16_t val)
 {
-    uint16_t dest_val = 0;
-    for (int i = 15; i >= 0; i--) {
-        int bit = (val >> i) & 1;
-        dest_val <<= 4;
-        dest_val |= reverse ? (bit ? bg : fg) : (bit ? fg : bg);
-        dest[3 - (i >> 2)] = dest_val;
-    }
+    uint16_t hi_index = ((val >> 8) & 0xFF) << 1, lo_index = (val & 0xFF) << 1;
+    dest[0] = expand_table[hi_index];
+    dest[1] = expand_table[hi_index + 1];
+    dest[2] = expand_table[lo_index];
+    dest[3] = expand_table[lo_index + 1];
 }
 
-static void expand_pattern_4bpp(uint16_t *dest, const uint16_t *pattern, int fg, int bg, int reverse)
+static void expand_pattern_4bpp(uint16_t *dest, const uint16_t *pattern)
 {
     for (int i = 0; i < 16; i++) {
-        expand_word(dest, pattern[i], fg, bg, reverse);
+        expand_word(dest, pattern[i]);
         dest += 4;
     }
 }
@@ -74,7 +74,6 @@ static void blit_horiz(volatile xmreg_t *const xosera_ptr, BlitParameters *p, ui
 static void xosera_pattern_fill(volatile xmreg_t *const xosera_ptr, uint16_t x0, uint16_t y0, uint16_t w, uint16_t h,
                                 uint16_t color, uint16_t mode, uint16_t src_addr, uint16_t pf_words_per_line)
 {
-    // FIXME: be sure to clip incoming coordinates.
     uint16_t exp_color = expanded_color[color];
     const uint16_t pattern_vram = 0xFFC0;
     uint16_t dst_addr = y0 * pf_words_per_line + (x0 >> 2);
@@ -162,23 +161,29 @@ static int is_solid_pattern(const uint16_t *pattern)
 }
 
 long CDECL c_fill_area(Virtual *vwk, long x0, long y0, long w, long h, short *pattern, long colour, long mode,
-                       long UNUSED(interior_style))
+                       long interior_style)
 {
     // Reject special mode. The engine will then call us in normal mode.
     if ((long) (vwk) & 1) return -1;
 #ifdef FVDI_DEBUG
-    dump_fill_area_params(x0, y0, w, h, colour, mode, pattern);
+    dump_fill_area_params(x0, y0, w, h, colour, mode, interior_style);
 #endif
     volatile xmreg_t *const xosera_ptr = xv_prep_dyn(me->device);
     uint16_t pf_words_per_line = vwk->real_address->screen.mfdb.wdwidth;
     long hw_color = c_get_colour(vwk, colour & 0xFFFF);
+    int16_t fill_type = (int16_t)((interior_style >> 16) & 0xFFFF);
+    int16_t pattern_index = (int16_t)(interior_style & 0xFFFF);
 
-    if (mode == MODE_XOR || is_solid_pattern((const uint16_t *) pattern)) {
+    int solid_pattern = (fill_type == 0) || (fill_type == 1) || ((fill_type == 2) && (pattern_index == 8)) ||
+            is_solid_pattern((const uint16_t *) pattern);
+
+    if (mode == MODE_XOR || solid_pattern) {
         xosera_solid_fill(xosera_ptr, x0, y0, w, h, hw_color, mode, pf_words_per_line);
     } else {
+        // FIXME: May need special handling for MODE_REVERSE_TRANSPARENT
         uint16_t exp_pattern[64];
         const uint16_t vram_src_addr = 0xFFC0;
-        expand_pattern_4bpp(exp_pattern, (const uint16_t *) pattern, 0xF, 0x0, mode == MODE_REVERSE_TRANSPARENT);
+        expand_pattern_4bpp(exp_pattern, (const uint16_t *) pattern);
         copy_pattern_to_vram_4pp(xosera_ptr, vram_src_addr, exp_pattern);
         xosera_pattern_fill(xosera_ptr, x0, y0, w, h, hw_color, mode, vram_src_addr, pf_words_per_line);
     }

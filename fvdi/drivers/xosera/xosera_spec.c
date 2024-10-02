@@ -64,11 +64,6 @@ void timer_b_interrupt_handler(void);
 
 uint16_t timer_b_sieve = 0x1111;
 
-/*
-short shadow = 0;
-short fix_shape = 0;
-short no_restore = 0;
- */
 short enable_timer_b = 0;
 
 static int validate_hex(const char *p)
@@ -123,7 +118,6 @@ static long set_xosera_base(const char **ptr)
 }
 
 static Option const options[] = {
-        {"debug",          {&debug},          2},              /* debug, turn on debugging aids */
         {"xosera_base",    {set_xosera_base}, -1},
         {"enable_timer_b", {&enable_timer_b},     1},
 };
@@ -203,13 +197,13 @@ long CDECL initialize(Virtual *vwk)
     wk->screen.mfdb.height = height;
     wk->screen.mfdb.bitplanes = bits_per_pixel;
 
-    wk->screen.mfdb.wdwidth = 160; //(short)((wk->screen.mfdb.width + 15) / 16);
-    wk->screen.wrap = (short) (wk->screen.mfdb.width * (wk->screen.mfdb.bitplanes / 8));
+    wk->screen.mfdb.wdwidth = (short) (wk->screen.mfdb.width * wk->screen.mfdb.bitplanes / 16);
+    wk->screen.wrap = (short) (wk->screen.mfdb.width * wk->screen.mfdb.bitplanes / 8);
 
     wk->screen.coordinates.max_x = (short) (wk->screen.mfdb.width - 1);
     wk->screen.coordinates.max_y = (short) (wk->screen.mfdb.height - 1);
 
-    wk->screen.look_up_table = 0;                        /* Was 1 (???)	Shouldn't be needed (graphics_mode) */
+    wk->screen.look_up_table = 1;
     wk->screen.mfdb.standard = 0;
 
     if (wk->screen.pixel.width > 0)  /* Starts out as screen width in millimeters. Convert to microns per pixel. */
@@ -222,6 +216,9 @@ long CDECL initialize(Virtual *vwk)
         wk->screen.pixel.height = 25400 / -wk->screen.pixel.height;
 
     volatile xmreg_t *const xosera_ptr = (volatile xmreg_t *const) xosera_base;
+
+    // FIXME: The EmuTOS XBIOS needs to be made Xosera-aware and then made to return the correct Xosera-specific address here.
+    wk->screen.mfdb.address = Physbase();
 
     device.address = (void *) xosera_ptr;
 
@@ -239,10 +236,10 @@ long CDECL initialize(Virtual *vwk)
     access->funcs.puts(str);
 
     uint16_t pa_gfx_ctrl = (1 << GFX_CTRL_BITMAP_B) | (GFX_4_BPP << GFX_CTRL_BPP_B) |
-                           (GFX_1X << GFX_CTRL_H_REPEAT_B) | (height == 240 ? GFX_2X : GFX_1X);
+                           ((width <= 320 ? GFX_2X : GFX_1X) << GFX_CTRL_H_REPEAT_B) | (height <= 240 ? GFX_2X : GFX_1X);
 
     xreg_setw(PA_LINE_LEN, width / bits_per_pixel);
-    xreg_setw(VID_RIGHT, width);
+    xreg_setw(VID_RIGHT, 640); // always 640
     xreg_setw(PA_GFX_CTRL, pa_gfx_ctrl);
     xreg_setw(PB_GFX_CTRL, 0x0080); /* blank PB */
     xm_setw(WR_INCR, 1);
@@ -250,6 +247,8 @@ long CDECL initialize(Virtual *vwk)
     xm_setw(PIXEL_Y, width / bits_per_pixel); /* Number of words per line. */
     xm_setbh(SYS_CTRL, 0); /* Set pixel parameters. */
     xm_setbl(SYS_CTRL, 0xF);
+    // Enable VBLANK interrupts on Xosera
+    xm_setw(INT_CTRL, INT_CTRL_VIDEO_EN_F | INT_CTRL_CLEAR_ALL_F);
 
     /*
      * This code needs more work.
