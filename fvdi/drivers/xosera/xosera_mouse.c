@@ -13,17 +13,7 @@
 
 void local_xosera_set_pointer(volatile xmreg_t *xosera_ptr, int16_t x, int16_t y, uint16_t colormap_index);
 
-static void hide_mouse(volatile xmreg_t *const xosera_ptr)
-{
-    // wait for start of hblank to hide change
-    xwait_not_hblank();
-    xwait_hblank();
-    xreg_setw(POINTER_H, 0x0000);
-    xreg_setw(POINTER_V, 0xF000);
-}
-
-static void
-show_mouse(volatile xmreg_t *const xosera_ptr, short x, short y)
+static void show_mouse(volatile xmreg_t *const xosera_ptr, short x, short y)
 {
     static uint16_t mouse_y_scale = 0, mouse_x_scale = 0;
     if (mouse_y_scale == 0) {
@@ -85,7 +75,7 @@ c_mouse_draw(Workstation *UNUSED(wk), long x, long y, Mouse *mouse)
             show_mouse(xosera_ptr, sx, sy);
             return 1;
         case 2: /* Hide the mouse. */
-            hide_mouse(xosera_ptr);
+            local_xosera_set_pointer(xosera_ptr, -32, -32, 0xF000);
             return 1;
         case 3: /* Show the mouse. */
             show_mouse(xosera_ptr, sx, sy);
