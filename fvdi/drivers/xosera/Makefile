@@ -29,7 +29,7 @@ SSRC = \
 	../common/c_common.s \
 	../common/common.s \
 	../common/clip.s \
-    timerb_intr.s
+        timerb_intr.s
 
 CSRC = \
     ../common/colours.c \

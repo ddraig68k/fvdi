@@ -180,6 +180,23 @@ long check_token(char *token, const char **ptr)
 
 bool local_xosera_init(volatile xmreg_t *xosera_ptr, xosera_mode_t init_mode);
 
+static void vbl_handler(void)
+{   
+    uint8_t *xosera_p = (uint8_t *)xosera_base;
+    // TODO: ACK only VBL interrupt.
+    volatile uint8_t cur = xosera_p[6];
+    xosera_p[6] = cur & 0x10;  // Ack interrupts.
+}
+
+typedef void (*PFVOID)(void);
+
+static void install_to_vblqueue(PFVOID handler)
+{
+    PFVOID **vblqueue = (PFVOID **)(0x456); /* Pointer to the VBL queue array */
+    PFVOID *vbl_list = NULL;
+    if (vblqueue) vbl_list = *vblqueue;
+    if (vbl_list) vbl_list[1] = handler;
+}
 
 long CDECL initialize(Virtual *vwk)
 {
@@ -215,16 +232,19 @@ long CDECL initialize(Virtual *vwk)
     else                                    /*   or fixed DPI (negative) */
         wk->screen.pixel.height = 25400 / -wk->screen.pixel.height;
 
-    volatile xmreg_t *const xosera_ptr = (volatile xmreg_t *const) xosera_base;
-
     // FIXME: The EmuTOS XBIOS needs to be made Xosera-aware and then made to return the correct Xosera-specific address here.
     wk->screen.mfdb.address = Physbase();
 
+    volatile xmreg_t *const xosera_ptr = (volatile xmreg_t *const) xosera_base;
     device.address = (void *) xosera_ptr;
+
+    // Install the vertical blank handler
+    if (!enable_timer_b) install_to_vblqueue(vbl_handler);
 
     access->funcs.puts("Xosera: Initializing...\r\n");
     if (!local_xosera_init(xosera_ptr, 0)) {
         access->funcs.puts("Xosera: Initialization failed.\r\n");
+        if (!enable_timer_b) install_to_vblqueue(NULL);
         return 0;
     }
     char str[80], buf[80];
@@ -247,8 +267,6 @@ long CDECL initialize(Virtual *vwk)
     xm_setw(PIXEL_Y, width / bits_per_pixel); /* Number of words per line. */
     xm_setbh(SYS_CTRL, 0); /* Set pixel parameters. */
     xm_setbl(SYS_CTRL, 0xF);
-    // Enable VBLANK interrupts on Xosera
-    xm_setw(INT_CTRL, INT_CTRL_VIDEO_EN_F | INT_CTRL_CLEAR_ALL_F);
 
     /*
      * This code needs more work.
@@ -279,6 +297,11 @@ long CDECL initialize(Virtual *vwk)
         /* We will divide this by four in the handler to call 'int_vbl' sixty times a second. */
         access->funcs.puts("Xosera driver init: Installing Timer B Vertical Bank Source\n");
         Xbtimer(XB_TIMERB, 7, 154, timer_b_interrupt_handler);
+    } else { 
+        /* Enable Xosera vertical end interrupt. */
+        xm_setbl(INT_CTRL, 0x7F); /* clear all pending interrupts */
+        xm_setbh(INT_CTRL, 0x10); /* enable video interrupt */
+        access->funcs.puts("Xosera driver init: Xosera video interrupt handler installed.\n");
     }
     access->funcs.puts("Xosera driver init: done.\r\n");
 
