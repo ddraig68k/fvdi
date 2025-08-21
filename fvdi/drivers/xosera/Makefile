@@ -4,11 +4,6 @@
 # Please, see LICENSE.TXT for further information.
 #
 
-# Check for xosera_m68k_api build directory.
-ifndef XOSERA_M68K_API
-$(error Please set XOSERA_M68K_API to the xosera_m68k_api directory to use for Xosera m68k building)
-endif
-
 TARGET = xosera.sys
 
 all: $(TARGET)
@@ -17,7 +12,7 @@ top_srcdir = ../..
 
 OPTS    = -mshort -O2 -fomit-frame-pointer -std=c99
 include $(top_srcdir)/CONFIGVARS
-
+WARNINGS = -Wall -W -Wunused -Wundef -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs
 CFLAGS  = $(CPUOPTS) $(OPTS) $(WARNINGS) -I$(top_srcdir)/include -I$(top_srcdir)/drivers/include -I$(XOSERA_M68K_API)
 # don't include rosco firmware I/O in API, also define a few things that rosco_m68k toolchain normally defines to quiet warnings
 CFLAGS +=  -DXOSERA_API_MINIMAL -D_XOPEN_SOURCE=700 -D_FORTIFY_SOURCE=0 -DROSCO_M68K=1
