@@ -33,7 +33,7 @@ endif
 
 # CPU to compile for
 ifeq ($(CPU),)
-CPU    ?= 020
+CPU    ?= 000
 endif
 
 ifeq ($(CPU),v4e)
