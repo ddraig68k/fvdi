@@ -5,6 +5,7 @@
  */
 
 #include "gfxvga.h"
+#include "vga.h"
 #include "driver.h"
 
 /*
@@ -16,19 +17,21 @@
 long CDECL
 c_write_pixel(Virtual *vwk, MFDB *dst, long x, long y, long colour)
 {
-    static uint16_t offscreen_y_offset = 0;
+    Workstation *wk;
+    long offset;
 
-    if ((long) vwk & 1) return -1;
-    if (offscreen_y_offset == 0) offscreen_y_offset = vwk->real_address->screen.mfdb.height;
+    if ((long)vwk & 1)
+        return 0;
 
-    volatile xmreg_t *const xosera_ptr = xv_prep_dyn(me->device);
+    wk = vwk->real_address;
+    if (!dst || !dst->address || (dst->address == wk->screen.mfdb.address)) {
+        offset = wk->screen.wrap * y + x;
+        *(UWORD *)((long)wk->screen.mfdb.address + offset) = colour;
+    } else {
+        offset = (dst->wdwidth * 2 * dst->bitplanes) * y + x;
+        *(UWORD *)((long)dst->address + offset) = colour;
+    }
 
-    // If off screen, offset the Y by the height of the screen.
-    uint16_t offset = is_screen(vwk->real_address, dst) ? 0 : offscreen_y_offset;
-    xm_setw(PIXEL_X, x);
-    xm_setw(PIXEL_Y, y + offset);
-    vram_setw_next_wait(expanded_color[colour & 0xF]);
-    xm_setbl(SYS_CTRL, 0xF); /* restore the possibly-modified write mask. */
     return 1;
 }
 
