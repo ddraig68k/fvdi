@@ -11,6 +11,7 @@
 #include "board.h"
 #include <os.h>
 #include "string/memset.h"
+#include "vgacard.h"
 
 static char const r_16[] = { 5, 11, 12, 13, 14, 15 };
 static char const g_16[] = { 6,  5,  6,  7,  8,  9, 10 };
@@ -212,69 +213,67 @@ long CDECL initialize(Virtual *vwk)
 	access->funcs.puts("\xbd 2025 Stephen Moody\x8are\r\n");
 	access->funcs.puts("\r\n");
 
-	mi = find_mode_info();
-	screen_address = saga_alloc_vram(resolution.width, resolution.height);
-
 	vwk = me->default_vwk;	/* This is what we're interested in */	
 	wk = vwk->real_address;
 
-	wk->screen.look_up_table = 0;			/* Was 1 (???)  Shouldn't be needed (graphics_mode) */
-	wk->screen.mfdb.standard = 0;
-	if (wk->screen.pixel.width > 0)        /* Starts out as screen width */
-		wk->screen.pixel.width = (wk->screen.pixel.width * 1000L) / wk->screen.mfdb.width;
-	else                                   /*   or fixed DPI (negative) */
-		wk->screen.pixel.width = 25400 / -wk->screen.pixel.width;
-	if (wk->screen.pixel.height > 0)        /* Starts out as screen height */
-		wk->screen.pixel.height = (wk->screen.pixel.height * 1000L) / wk->screen.mfdb.height;
-	else                                    /*   or fixed DPI (negative) */
-		wk->screen.pixel.height = 25400 / -wk->screen.pixel.height;
+	const short width = 640, height = 480, bits_per_pixel = 16;
 
+    wk->screen.coordinates.max_x = (short) (wk->screen.mfdb.width - 1);
+    wk->screen.coordinates.max_y = (short) (wk->screen.mfdb.height - 1);
+
+    wk->screen.look_up_table = 1;
+    wk->screen.mfdb.standard = 0;
+
+    if (wk->screen.pixel.width > 0)  /* Starts out as screen width in millimeters. Convert to microns per pixel. */
+        wk->screen.pixel.width = (wk->screen.pixel.width * 1000L) / wk->screen.mfdb.width;
+    else                                   /*   or fixed DPI (negative) */
+        wk->screen.pixel.width = 25400 / -wk->screen.pixel.width;
+    if (wk->screen.pixel.height > 0) /* Starts out as screen height in millimeters. Convert to microns per pixel. */
+        wk->screen.pixel.height = (wk->screen.pixel.height * 1000L) / wk->screen.mfdb.height;
+    else                                    /*   or fixed DPI (negative) */
+        wk->screen.pixel.height = 25400 / -wk->screen.pixel.height;
+
+    // FIXME: The EmuTOS XBIOS needs to be made Xosera-aware and then made to return the correct Xosera-specific address here.
+    //wk->screen.mfdb.address = Physbase();
+	wk->screen.mfdb.address = (short *) ddraig_vga_base; // FIXME: Temporary hardcoded address for testing.
+    volatile xmreg_t *const ddraig_ptr = (volatile xmreg_t *const) ddraig_vga_base;
+    device.address = (void *) ddraig_ptr;
+
+	char str[80], buf[80];
+    str[0] = 0;
+    access->funcs.cat("GfxVGA: Configuring, using base address of 0x", str);
+    access->funcs.ltoa(buf, (long) ddraig_vga_base, 16);
+    access->funcs.cat(buf, str);
+    access->funcs.cat(".\r\n", str);
+    access->funcs.puts(str);
+
+	g_gfxfpga_base = ddraig_vga_base;
+	drvga_write_control_reg(DISPMODE_BITMAPHIRES);
 
 	/*	
 	 * This code needs more work.
 	 * Especially if there was no VDI started since before.
 	 */
 
-	if (loaded_palette)
-		access->funcs.copymem(loaded_palette, default_vdi_colors, 256 * 3 * sizeof(short));
-	if ((old_palette_size = wk->screen.palette.size) != 256) {	/* Started from different graphics mode? */
-		old_palette_colours = wk->screen.palette.colours;
-		wk->screen.palette.colours = (Colour *)access->funcs.malloc(256L * sizeof(Colour), 3);	/* Assume malloc won't fail. */
-		if (wk->screen.palette.colours) {
-			wk->screen.palette.size = 256;
-			if (old_palette_colours)
-				access->funcs.free(old_palette_colours);	/* Release old (small) palette (a workaround) */
-		} else
-			wk->screen.palette.colours = old_palette_colours;
-	}
-	c_initialize_palette(vwk, 0, wk->screen.palette.size, default_vdi_colors, wk->screen.palette.colours);
+	if (loaded_palette) {
+        access->funcs.puts("We are loading a palette.\n");
+        access->funcs.copymem(loaded_palette, default_vdi_colors, 16 * 3 * sizeof(short));
+    } else {
+        access->funcs.puts("We are NOT loading a palette.\n");
+    }
+    wk->screen.palette.size = bits_per_pixel == 4 ? 16 : 256;
 
-	device.byte_width = wk->screen.wrap;
-	device.address = wk->screen.mfdb.address;
+    Colour *default_palette = (Colour *) access->funcs.malloc(wk->screen.palette.size * sizeof(Colour), 3);
+    if (default_palette == NULL) {
+        access->funcs.error("Can't allocate memory for default palette.\n", NULL);
+    }
+    wk->screen.palette.colours = default_palette;
 
-	pixel.width = wk->screen.pixel.width;
-	pixel.height = wk->screen.pixel.height;
+    // This call is required to initialize the palette.
+    c_initialize_palette(vwk, 0, wk->screen.palette.size, default_vdi_colors, wk->screen.palette.colours);
 
-	/*
-	 * accelerated mouse routines are in use
-	 */
-	{
-		/* check whether hardware sprites are supported */
-		UBYTE boardid = ( *(volatile UWORD*)VREG_BOARD ) >> 8;
-		int has_hwsprite;
-		
-		has_hwsprite = boardid == VREG_BOARD_V4 || boardid == VREG_BOARD_V4SA;
-		/* above does not seem to apply */
-		has_hwsprite = TRUE;
-		if (hwmouse < 0)
-		{
-			hwmouse = has_hwsprite;
-		} else if (hwmouse && !has_hwsprite)
-		{
-			access->funcs.puts("saga: hwmouse not supported, disabled\r\n");
-			hwmouse = FALSE;
-		}
-	}
+    device.byte_width = wk->screen.wrap;
+    access->funcs.puts("Ddraig VGA driver init: done.\r\n");
 
 	return 1;
 }
@@ -306,47 +305,6 @@ long CDECL setup(long type, long value)
  */
 Virtual* CDECL opnwk(Virtual *vwk)
 {
-	Workstation *wk;
-	vwk = me->default_vwk;  /* This is what we're interested in */
-	wk = vwk->real_address;
-
-	/* Switch to SAGA screen */
-	saga_set_clock(mi);
-	saga_set_modeline(mi, SAGA_VIDEO_FORMAT_RGB16);
-	saga_set_panning(screen_address);
-
-	/* update the settings */
-	wk->screen.mfdb.width = mi->Width;
-	wk->screen.mfdb.height = mi->Height;
-	wk->screen.mfdb.bitplanes = resolution.bpp;
-
-	/*
-	 * Some things need to be changed from the
-	 * default workstation settings.
-	 */
-	wk->screen.mfdb.address = (short *)screen_address;
-	wk->screen.mfdb.wdwidth = (wk->screen.mfdb.width + 15) / 16;
-	wk->screen.wrap = wk->screen.mfdb.width * (wk->screen.mfdb.bitplanes / 8);
-
-	wk->screen.coordinates.max_x = wk->screen.mfdb.width - 1;
-	wk->screen.coordinates.max_y = wk->screen.mfdb.height - 1;
-
-	wk->screen.look_up_table = 0;			/* Was 1 (???)	Shouldn't be needed (graphics_mode) */
-	wk->screen.mfdb.standard = 0;
-
-	if (pixel.width > 0)			/* Starts out as screen width */
-		wk->screen.pixel.width = (pixel.width * 1000L) / wk->screen.mfdb.width;
-	else								   /*	or fixed DPI (negative) */
-		wk->screen.pixel.width = 25400 / -pixel.width;
-
-	if (pixel.height > 0)		/* Starts out as screen height */
-		wk->screen.pixel.height = (pixel.height * 1000L) / wk->screen.mfdb.height;
-	else									/*	 or fixed DPI (negative) */
-		wk->screen.pixel.height = 25400 / -pixel.height;
-
-	wk->mouse.position.x = ((wk->screen.coordinates.max_x - wk->screen.coordinates.min_x + 1) >> 1) + wk->screen.coordinates.min_x;
-	wk->mouse.position.y = ((wk->screen.coordinates.max_y - wk->screen.coordinates.min_y + 1) >> 1) + wk->screen.coordinates.min_y;
-
 	return 0;
 }
 
