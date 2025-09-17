@@ -68,3 +68,4 @@ clean:: clean_gnu
 install::
 	mkdir -p $(DESTDIR)/gemsys
 	cp -a $(TARGET) $(DESTDIR)/gemsys/$(TARGET)
+	cp -a fvdi.sys "$(DESTDIR)/fvdigfx.sys"
