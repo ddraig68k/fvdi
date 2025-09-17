@@ -6,19 +6,16 @@
 #include "fvdi.h"
 #include "driver.h"
 #include "relocate.h"
-#include "saga.h"
-#include "video.h"
-#include "board.h"
 #include <os.h>
 #include "string/memset.h"
-#include "vgacard.h"
+#include "gfxvga.h"
 
 static char const r_16[] = { 5, 11, 12, 13, 14, 15 };
 static char const g_16[] = { 6,  5,  6,  7,  8,  9, 10 };
 static char const b_16[] = { 5,  0,  1,  2,  3,  4 };
 static char const none[] = { 0 };
 
-ULONG ddraig_vga_base = 0xA00000; /* Default VGA memory base address */
+ULONG ddraig_vga_memory = 0xA00000; /* Default VGA memory base address */
 
 static Mode const mode[1] = {
 	{ 16, CHUNKY | CHECK_PREVIOUS | TRUE_COLOUR, { r_16, g_16, b_16, none, none, none }, 0,  2, 2, 1 }
@@ -26,18 +23,6 @@ static Mode const mode[1] = {
 
 char driver_name[] = "GfxVGA";
 
-static struct {
-	short used; /* Whether the mode option was used or not. */
-	short width;
-	short height;
-	short bpp;
-	short freq;
-} resolution = {0, 640, 480, 16, 60};
-
-struct {
-	short width;
-	short height;
-} pixel;
 
 long CDECL (*write_pixel_r)(Virtual *vwk, MFDB *mfdb, long x, long y, long colour) = c_write_pixel;
 long CDECL (*read_pixel_r)(Virtual *vwk, MFDB *mfdb, long x, long y) = c_read_pixel;
@@ -64,80 +49,12 @@ static void vga_puts(const char* message)
 	access->funcs.puts("\n");
 }
 
-static void panic(const char* message)
-{
-	/* Unfortunately, fVDI can't recover from driver initialization failure.
-	 * So we just wait forever. */
-	vga_puts(message);
-	for(;;);
-}
-
 long wk_extend = 0;
 
 short accel_s = 0;
 short accel_c = A_SET_PAL | A_GET_COL | A_SET_PIX | A_GET_PIX;
 
 const Mode *graphics_mode = &mode[0];
-
-
-static char *get_num(char *token, short *num)
-{
-	char buf[10], c;
-	int i;
-
-	*num = -1;
-	if (!*token)
-		return token;
-	for(i = 0; i < 10; i ++) {
-		c = buf[i] = *token++;
-		if ((c < '0') || (c > '9'))
-			break;
-	}
-	if (i > 5)
-		return token;
-
-	buf[i] = '\0';
-	*num = access->funcs.atol(buf);
-	return token;
-}
-
-static int set_bpp(int bpp)
-{
-	switch (bpp) {
-	case -1:
-	case 16:
-		graphics_mode = &mode[0];
-		break;
-	default:
-		panic("Unsupported BPP.");
-		break;
-	}
-
-	return bpp;
-}
-
-static long set_mode(const char **ptr)
-{
-	char token[80], *tokenptr;
-
-	if ((*ptr = access->funcs.skip_space(*ptr)) == NULL)
-	{
-		;		/* *********** Error, somehow */
-	}
-	*ptr = access->funcs.get_token(*ptr, token, 80);
-
-	tokenptr = token;
-	tokenptr = get_num(tokenptr, &resolution.width);
-	tokenptr = get_num(tokenptr, &resolution.height);
-	tokenptr = get_num(tokenptr, &resolution.bpp);
-	tokenptr = get_num(tokenptr, &resolution.freq);
-
-	resolution.used = 1;
-
-	resolution.bpp = set_bpp(resolution.bpp);
-
-	return 1;
-}
 
 static Option const options[] = {
 	{"debug",      { &debug },             2},  /* debug, turn on debugging aids */
@@ -218,6 +135,13 @@ long CDECL initialize(Virtual *vwk)
 
 	const short width = 640, height = 480, bits_per_pixel = 16;
 
+    wk->screen.mfdb.width = width;
+    wk->screen.mfdb.height = height;
+    wk->screen.mfdb.bitplanes = bits_per_pixel;
+
+    wk->screen.mfdb.wdwidth = (short) (wk->screen.mfdb.width * wk->screen.mfdb.bitplanes / 16);
+    wk->screen.wrap = (short) (wk->screen.mfdb.width * wk->screen.mfdb.bitplanes / 8);
+
     wk->screen.coordinates.max_x = (short) (wk->screen.mfdb.width - 1);
     wk->screen.coordinates.max_y = (short) (wk->screen.mfdb.height - 1);
 
@@ -235,19 +159,18 @@ long CDECL initialize(Virtual *vwk)
 
     // FIXME: The EmuTOS XBIOS needs to be made Xosera-aware and then made to return the correct Xosera-specific address here.
     //wk->screen.mfdb.address = Physbase();
-	wk->screen.mfdb.address = (short *) ddraig_vga_base; // FIXME: Temporary hardcoded address for testing.
-    volatile xmreg_t *const ddraig_ptr = (volatile xmreg_t *const) ddraig_vga_base;
-    device.address = (void *) ddraig_ptr;
+	wk->screen.mfdb.address = (short *) ddraig_vga_memory; // FIXME: Temporary hardcoded address for testing.
+    device.address = (void *) ddraig_vga_memory;
 
 	char str[80], buf[80];
     str[0] = 0;
     access->funcs.cat("GfxVGA: Configuring, using base address of 0x", str);
-    access->funcs.ltoa(buf, (long) ddraig_vga_base, 16);
+    access->funcs.ltoa(buf, (long) ddraig_vga_memory, 16);
     access->funcs.cat(buf, str);
     access->funcs.cat(".\r\n", str);
     access->funcs.puts(str);
 
-	g_gfxfpga_base = ddraig_vga_base;
+	g_gfxfpga_base = 0x00F7F500;
 	drvga_write_control_reg(DISPMODE_BITMAPHIRES);
 
 	/*	
@@ -274,6 +197,7 @@ long CDECL initialize(Virtual *vwk)
 
     device.byte_width = wk->screen.wrap;
     access->funcs.puts("Ddraig VGA driver init: done.\r\n");
+	device.address = wk->screen.mfdb.address;
 
 	return 1;
 }

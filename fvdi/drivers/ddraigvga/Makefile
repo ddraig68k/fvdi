@@ -4,19 +4,13 @@
 # Please, see LICENSE.TXT for further information.
 #
 
-#
-# gcc >= 2.95.3 (sparemint) version
-#
-
-TARGET = saga.sys
+TARGET = gfxvga.sys
 
 all: $(TARGET)
 
 top_srcdir = ../..
 
-CPU     = 040
 OPTS    = -mshort -O2 -fomit-frame-pointer
-
 include $(top_srcdir)/CONFIGVARS
 
 CFLAGS  = $(CPUOPTS) $(OPTS) $(WARNINGS) -I$(top_srcdir)/include -I$(top_srcdir)/drivers/include
@@ -33,12 +27,10 @@ CSRC = \
 	init.c \
 	colours.c \
 	printf.c \
-	sag_spec.c \
-	saga.c \
-	modeline_vesa.c \
-	saga_pll.c \
-	16_bit.c \
-	sag_mous.c
+	gfxvga_spec.c \
+	gfxvga_pal.c \
+	gfxvga_scr.c \
+	gfxvga.c
 
 # handle DevPac -> gas conversions
 # defines SSRC_GNU and SINCSRC_GNU variables
@@ -51,6 +43,7 @@ SINCSRC_GNU += \
 	$(top_srcdir)/drivers/include/pixelmac.gnu
 
 # engine binary objects
+# Engine binary objects
 ifeq ($(CPU),v4e)
 OBJECTS = $(SSRC_GNU_CF:.s=.o)
 else
@@ -65,6 +58,7 @@ $(TARGET): $(OBJECTS) $(LIBFILES)
 
 include $(top_srcdir)/DEPENDENCIES
 
+
 strip:
 	$(STRIP) --strip-all $(TARGET)
 
@@ -72,6 +66,5 @@ clean:: clean_gnu
 	$(RM) $(OBJECTS) $(TARGET)
 
 install::
-	mkdir -p "$(DESTDIR)/gemsys"
-	cp -a $(TARGET) "$(DESTDIR)/gemsys/$(TARGET)"
-	cp -a fvdi.sys "$(DESTDIR)/fvdisaga.sys"
+	mkdir -p $(DESTDIR)/gemsys
+	cp -a $(TARGET) $(DESTDIR)/gemsys/$(TARGET)

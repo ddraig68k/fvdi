@@ -5,7 +5,7 @@
  */
 
 #include "gfxvga.h"
-#include "vga.h"
+#include "gfxvga.h"
 #include "driver.h"
 
 /*
@@ -18,19 +18,27 @@ long CDECL
 c_write_pixel(Virtual *vwk, MFDB *dst, long x, long y, long colour)
 {
     Workstation *wk;
-    long offset;
+    int offset;
 
     if ((long)vwk & 1)
         return 0;
 
     wk = vwk->real_address;
-    if (!dst || !dst->address || (dst->address == wk->screen.mfdb.address)) {
-        offset = wk->screen.wrap * y + x;
+    if (!dst || !dst->address) {
+        // Write the pixel to the screen memory
+        offset = (y * wk->screen.mfdb.width) + x;
         *(UWORD *)((long)wk->screen.mfdb.address + offset) = colour;
-    } else {
-        offset = (dst->wdwidth * 2 * dst->bitplanes) * y + x;
-        *(UWORD *)((long)dst->address + offset) = colour;
     }
+    
+    // TODO: Implment double buffering support.
+
+    // if (!dst || !dst->address || (dst->address == wk->screen.mfdb.address)) {
+    //     offset = wk->screen.wrap * y + x;
+    //     *(UWORD *)((long)wk->screen.mfdb.address + offset) = colour;
+    // } else {
+    //     offset = (dst->wdwidth * 2 * dst->bitplanes) * y + x;
+    //     *(UWORD *)((long)dst->address + offset) = colour;
+    // }
 
     return 1;
 }
@@ -38,18 +46,18 @@ c_write_pixel(Virtual *vwk, MFDB *dst, long x, long y, long colour)
 long CDECL
 c_read_pixel(Virtual *vwk, MFDB *src, long x, long y)
 {
-    static uint16_t offscreen_y_offset = 0, screen_width = 0;
-    if (offscreen_y_offset == 0) {
-        offscreen_y_offset = vwk->real_address->screen.mfdb.height;
-        screen_width = vwk->real_address->screen.mfdb.width;
-    }
+	Workstation *wk;
+    int offset;
+    UWORD colour;
 
-    volatile xmreg_t *const xosera_ptr = xv_prep_dyn(me->device);
-    // If off screen, offset the Y by the height of the screen.
-    uint16_t offset = is_screen(vwk->real_address, src) ? 0 : offscreen_y_offset;
-    uint16_t addr = (y + offset) * (screen_width / 4) + (x / 4);
-    xm_setw(RD_ADDR, addr);
-    uint16_t color = xm_getw(DATA);
-    uint16_t shifted_color = color >> ((3 - (x & 0x3)) * 4);
-    return shifted_color & 0xF;
+    // static uint16_t offscreen_y_offset = 0, screen_width = 0;
+    // if (offscreen_y_offset == 0) {
+    //     offscreen_y_offset = vwk->real_address->screen.mfdb.height;
+    //     screen_width = vwk->real_address->screen.mfdb.width;
+    // }
+
+    offset = (y * wk->screen.mfdb.width) + x;
+    colour = *(UWORD *)((long)src->address + offset);
+
+    return colour;
 }
