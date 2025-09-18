@@ -215,8 +215,21 @@ long CDECL setup(long type, long value)
     return ret;
 }
 
-Virtual *CDECL opnwk(Virtual *UNUSED(vwk))
+Virtual *CDECL opnwk(Virtual *vwk)
 {
+    Workstation *wk;
+    vwk = me->default_vwk;  /* This is what we're interested in */
+
+    /*
+     * FIXME
+     *
+     * for some strange reason, the driver only works if the palette is (re)initialized here again.
+     * Otherwise, everything is drawn black on black (not very useful).
+     *
+     * I did not yet find what I'm doing differently from other drivers (that apparently do not have this problem).
+     */
+    c_initialize_palette(vwk, 0, wk->screen.palette.size, default_vdi_colors, wk->screen.palette.colours);
+
     return 0;
 }
 
