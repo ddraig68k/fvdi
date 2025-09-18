@@ -5,7 +5,6 @@
  */
 
 #include "gfxvga.h"
-#include "gfxvga.h"
 #include "driver.h"
 
 #define PIXEL       unsigned short
@@ -27,6 +26,8 @@ c_write_pixel(Virtual *vwk, MFDB *dst, long x, long y, long colour)
     if ((long)vwk & 1)
         return 0;
 
+    if (y >= 640)
+        y = y - 640;
 
     wk = vwk->real_address;
     if (!dst || !dst->address) {
