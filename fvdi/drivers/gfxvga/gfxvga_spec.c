@@ -47,7 +47,9 @@ short no_restore = 0;
 
 
 static Option const options[] = {
-        {"debug", {&debug}, 2},
+    {"debug",      { &debug }, 2 },              /* debug, turn on debugging aids */
+    {"fixshape",   { &fix_shape }, 1 },          /* fixed shape; do not allow mouse shape changes */
+    {"norestore",  { &no_restore }, 1 },
 };
 
 /*
@@ -56,47 +58,53 @@ static Option const options[] = {
 long check_token(char *token, const char **ptr)
 {
     int i;
-    short normal;
+    int normal;
     char *xtoken;
 
     xtoken = token;
-    switch (token[0]) {
-        case '+':
-            xtoken++;
-            normal = 1;
-            break;
-        case '-':
-            xtoken++;
-            normal = 0;
-            break;
-        default:
-            normal = 1;
-            break;
+    switch (token[0])
+    {
+    case '+':
+        xtoken++;
+        normal = 1;
+        break;
+    case '-':
+        xtoken++;
+        normal = 0;
+        break;
+    default:
+        normal = 1;
+        break;
     }
-    for (i = 0; i < (int) (sizeof(options) / sizeof(Option)); i++) {
-        if (access->funcs.equal(xtoken, options[i].name)) {
-            switch (options[i].type) {
-                case -1:                /* Function call */
-                    return (options[i].var.func)(ptr);
-                case 0:                 /* Default 1, set to 0 */
-                    *options[i].var.s = (short)(1 - normal);
-                    return 1;
-                case 1:                 /* Default 0, set to 1 */
-                    *options[i].var.s = normal;
-                    return 1;
-                case 2:                 /* Increase */
-                    *options[i].var.s += -1 + 2 * normal;
-                    return 1;
-                case 3:
-                    if ((*ptr = access->funcs.skip_space(*ptr)) ==
-                        NULL) { ;               /* *********** Error, somehow */
-                    }
-                    *ptr = access->funcs.get_token(*ptr, token, 80);
-                    *options[i].var.s = token[0];
-                    return 1;
+    for (i = 0; i < (int)(sizeof(options) / sizeof(Option)); i++)
+    {
+        if (access->funcs.equal(xtoken, options[i].name))
+        {
+            switch (options[i].type)
+            {
+            case -1:                /* Function call */
+                return (options[i].var.func) (ptr);
+            case 0:                 /* Default 1, set to 0 */
+                *options[i].var.s = 1 - normal;
+                return 1;
+            case 1:                 /* Default 0, set to 1 */
+                *options[i].var.s = normal;
+                return 1;
+            case 2:                 /* Increase */
+                *options[i].var.s += -1 + 2 * normal;
+                return 1;
+            case 3:
+                if ((*ptr = access->funcs.skip_space(*ptr)) == NULL)
+                {
+                    ;               /* *********** Error, somehow */
+                }
+                *ptr = access->funcs.get_token(*ptr, token, 80);
+                *options[i].var.s = token[0];
+                return 1;
             }
         }
     }
+
     return 0;
 }
 
@@ -154,17 +162,20 @@ long CDECL initialize(Virtual *vwk)
     access->funcs.cat(".\r\n", str);
     access->funcs.puts(str);
 
+	g_gfxfpga_base = 0x00F7F500;
+	drvga_write_control_reg(DISPMODE_BITMAPHIRES);
+
     /*
      * This code needs more work.
      * Especially if there was no VDI started since before.
      */
     if (loaded_palette) {
         access->funcs.puts("We are loading a palette.\n");
-        access->funcs.copymem(loaded_palette, default_vdi_colors, 16 * 3 * sizeof(short));
+        access->funcs.copymem(loaded_palette, default_vdi_colors, 256 * 3 * sizeof(short));
     } else {
         access->funcs.puts("We are NOT loading a palette.\n");
     }
-    wk->screen.palette.size = bits_per_pixel == 4 ? 16 : 256;
+    wk->screen.palette.size = 256;
 
     Colour *default_palette = (Colour *) access->funcs.malloc(wk->screen.palette.size * sizeof(Colour), 3);
     if (default_palette == NULL) {
@@ -177,6 +188,9 @@ long CDECL initialize(Virtual *vwk)
 
     device.byte_width = wk->screen.wrap;
     access->funcs.puts("GfxVGA driver init: done.\r\n");
+
+    wk->mouse.position.x = ((wk->screen.coordinates.max_x - wk->screen.coordinates.min_x + 1) >> 1) + wk->screen.coordinates.min_x;
+    wk->mouse.position.y = ((wk->screen.coordinates.max_y - wk->screen.coordinates.min_y + 1) >> 1) + wk->screen.coordinates.min_y;
 
     return 1;
 }
