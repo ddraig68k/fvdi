@@ -5,8 +5,6 @@
 
 #include "fvdi.h"
 #include "driver.h"
-#include "relocate.h"
-#include <os.h>
 #include "string/memset.h"
 #include "gfxvga.h"
 
@@ -121,8 +119,6 @@ long check_token(char *token, const char **ptr)
 long CDECL initialize(Virtual *vwk)
 {
 	Workstation *wk;
-	int old_palette_size;
-	Colour *old_palette_colours;
 
 	/* Display startup banner */
 	access->funcs.puts("\r\n");
