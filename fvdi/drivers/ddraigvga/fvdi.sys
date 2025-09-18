@@ -9,5 +9,4 @@
 # Double click REMOVE.PRG to uninstall once you're done testing.
 standalone
 debug debug debug
-#01r xosera.sys xosera_base 0xff81c1 enable_timer_b
-01r gfxvga.sys      
+01r gfxvga.sys
