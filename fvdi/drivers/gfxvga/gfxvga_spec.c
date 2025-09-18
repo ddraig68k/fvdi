@@ -3,11 +3,13 @@
  */
 
 #include "fvdi.h"
-#include "driver.h"
-#include "relocate.h"
-#include "../bitplane/bitplane.h"
-#include "string/memset.h"
 #include "gfxvga.h"
+#include <os.h>
+#include "stdint.h"
+#include "driver.h"
+#include "utility.h"
+#include "string/memset.h"
+
 
 static char const r_16[] = { 5, 11, 12, 13, 14, 15 };
 static char const g_16[] = { 6,  5,  6,  7,  8,  9, 10 };
@@ -15,10 +17,26 @@ static char const b_16[] = { 5,  0,  1,  2,  3,  4 };
 static char const none[] = { 0 };
 
 static Mode const mode[1] = {
-    { 16, CHUNKY | TRUE_COLOUR, { r_16, g_16, b_16, none, none, none }, 0, 2, 2, 1 }
+    { 16, CHECK_PREVIOUS | CHUNKY | TRUE_COLOUR, { r_16, g_16, b_16, none, none, none }, 0, 2, 2, 1 }
 };
 
 char driver_name[] = "Y Ddraig GfxVGA";
+
+struct resolution
+{
+    short used; /* Whether the mode option was used or not. */
+    short width;
+    short height;
+    short bpp;
+    short freq;
+    short flags;
+} resolution =  { 0, 640, 480, 16, 60, 0 };
+
+static struct {
+    short width;
+    short height;
+} pixel;
+
 
 long CDECL (*write_pixel_r)(Virtual *vwk, MFDB *mfdb, long x, long y, long colour) = c_write_pixel;
 long CDECL (*read_pixel_r)(Virtual *vwk, MFDB *mfdb, long x, long y) = c_read_pixel;
@@ -108,33 +126,25 @@ long check_token(char *token, const char **ptr)
     return 0;
 }
 
+static short *screen_address;
+
 /*
  * Do whatever setup work might be necessary on boot up
  * and which couldn't be done directly while loading.
  * Supplied is the default fVDI virtual workstation.
  */
-
 long CDECL initialize(Virtual *vwk)
 {
-    access->funcs.puts("Initializing GfxVGA driver...\r\n");
-
     Workstation *wk;
+    int old_palette_size;
+    Colour *old_palette_colours;
+
+    access->funcs.puts("Initializing GfxVGA driver...\r\n");
+    
+    screen_address = (short *)0xA00000;
 
     vwk = me->default_vwk;        /* This is what we're interested in */
     wk = vwk->real_address;
-
-    const short width = 640, height = 480, bits_per_pixel = 16;
-
-    /* update the settings */
-    wk->screen.mfdb.width = width;
-    wk->screen.mfdb.height = height;
-    wk->screen.mfdb.bitplanes = bits_per_pixel;
-
-    wk->screen.mfdb.wdwidth = (short) (wk->screen.mfdb.width * wk->screen.mfdb.bitplanes / 16);
-    wk->screen.wrap = (short) (wk->screen.mfdb.width * wk->screen.mfdb.bitplanes / 8);
-
-    wk->screen.coordinates.max_x = (short) (wk->screen.mfdb.width - 1);
-    wk->screen.coordinates.max_y = (short) (wk->screen.mfdb.height - 1);
 
     wk->screen.look_up_table = 0;
     wk->screen.mfdb.standard = 0;
@@ -148,10 +158,32 @@ long CDECL initialize(Virtual *vwk)
     else                                    /*   or fixed DPI (negative) */
         wk->screen.pixel.height = 25400 / -wk->screen.pixel.height;
 
-    // FIXME: The EmuTOS XBIOS needs to be made Xosera-aware and then made to return the correct Xosera-specific address here.
-    wk->screen.mfdb.address = (short *)0xA00000; //Physbase();
+            /*
+     * This code needs more work.
+     * Especially if there was no VDI started since before.
+     */
 
-    device.address = (void *) gfxvga_mem_base;
+    if (loaded_palette)
+        access->funcs.copymem(loaded_palette, default_vdi_colors, 256 * 3 * sizeof(short));
+
+    if ((old_palette_size = wk->screen.palette.size) != 256)
+    {
+        old_palette_colours = wk->screen.palette.colours;
+
+        wk->screen.palette.colours = access->funcs.malloc(256L * sizeof(Colour), 3);    /* Assume malloc won't fail. */
+        if (wk->screen.palette.colours)
+        {
+            wk->screen.palette.size = 256;
+            if (old_palette_colours)
+                access->funcs.free(old_palette_colours);    /* Release old (small) palette (a workaround) */
+        }
+        else
+            wk->screen.palette.colours = old_palette_colours;
+    }
+    c_initialize_palette(vwk, 0, wk->screen.palette.size, default_vdi_colors, wk->screen.palette.colours);
+
+    // FIXME: The EmuTOS XBIOS needs to be made Xosera-aware and then made to return the correct Xosera-specific address here.
+    wk->screen.mfdb.address = Physbase();
 
     access->funcs.puts("GfxVGA: Initializing...\r\n");
     char str[80], buf[80];
@@ -165,32 +197,11 @@ long CDECL initialize(Virtual *vwk)
 	g_gfxfpga_base = 0x00F7F500;
 	drvga_write_control_reg(DISPMODE_BITMAPHIRES);
 
-    /*
-     * This code needs more work.
-     * Especially if there was no VDI started since before.
-     */
-    if (loaded_palette) {
-        access->funcs.puts("We are loading a palette.\n");
-        access->funcs.copymem(loaded_palette, default_vdi_colors, 256 * 3 * sizeof(short));
-    } else {
-        access->funcs.puts("We are NOT loading a palette.\n");
-    }
-    wk->screen.palette.size = 256;
-
-    Colour *default_palette = (Colour *) access->funcs.malloc(wk->screen.palette.size * sizeof(Colour), 3);
-    if (default_palette == NULL) {
-        access->funcs.error("Can't allocate memory for default palette.\n", NULL);
-    }
-    wk->screen.palette.colours = default_palette;
-
-    // This call is required to initialize the palette.
-    c_initialize_palette(vwk, 0, wk->screen.palette.size, default_vdi_colors, wk->screen.palette.colours);
-
     device.byte_width = wk->screen.wrap;
-    access->funcs.puts("GfxVGA driver init: done.\r\n");
+    device.address = wk->screen.mfdb.address;
 
-    wk->mouse.position.x = ((wk->screen.coordinates.max_x - wk->screen.coordinates.min_x + 1) >> 1) + wk->screen.coordinates.min_x;
-    wk->mouse.position.y = ((wk->screen.coordinates.max_y - wk->screen.coordinates.min_y + 1) >> 1) + wk->screen.coordinates.min_y;
+    pixel.width = wk->screen.pixel.width;
+    pixel.height = wk->screen.pixel.height;
 
     return 1;
 }
@@ -218,7 +229,42 @@ long CDECL setup(long type, long value)
 Virtual *CDECL opnwk(Virtual *vwk)
 {
     Workstation *wk;
+
     vwk = me->default_vwk;  /* This is what we're interested in */
+    wk = vwk->real_address;
+
+    /* update the settings */
+    wk->screen.mfdb.width = (short) resolution.width;
+    wk->screen.mfdb.height = (short) resolution.height;
+    wk->screen.mfdb.bitplanes = (short) resolution.bpp;
+
+    /*
+     * Some things need to be changed from the
+     * default workstation settings.
+     */
+    wk->screen.mfdb.address = (short *) screen_address;
+
+    wk->screen.mfdb.wdwidth = (wk->screen.mfdb.width + 15) / 16;
+    wk->screen.wrap = wk->screen.mfdb.width * (wk->screen.mfdb.bitplanes / 8);
+
+    wk->screen.coordinates.max_x = wk->screen.mfdb.width - 1;
+    wk->screen.coordinates.max_y = wk->screen.mfdb.height - 1;
+
+    wk->screen.look_up_table = 0;           /* Was 1 (???)  Shouldn't be needed (graphics_mode) */
+    wk->screen.mfdb.standard = 0;
+
+    if (pixel.width > 0)            /* Starts out as screen width */
+        wk->screen.pixel.width = (pixel.width * 1000L) / wk->screen.mfdb.width;
+    else                                   /*   or fixed DPI (negative) */
+        wk->screen.pixel.width = 25400 / -pixel.width;
+
+    if (pixel.height > 0)       /* Starts out as screen height */
+        wk->screen.pixel.height = (pixel.height * 1000L) / wk->screen.mfdb.height;
+    else                                    /*   or fixed DPI (negative) */
+        wk->screen.pixel.height = 25400 / -pixel.height;
+
+    wk->mouse.position.x = ((wk->screen.coordinates.max_x - wk->screen.coordinates.min_x + 1) >> 1) + wk->screen.coordinates.min_x;
+    wk->mouse.position.y = ((wk->screen.coordinates.max_y - wk->screen.coordinates.min_y + 1) >> 1) + wk->screen.coordinates.min_y;
 
     /*
      * FIXME

@@ -152,6 +152,23 @@ static inline int is_screen(struct wk_ *wk, MFDB *mfdb)
 }
 
 
+
+void drvga_write_control_reg(UWORD data);
+void drvga_wait_busy(void);
+void drvga_wait_vblank(void);
+void drvga_wait_vblank_clear(void);
+void drvga_clear_text(void);
+void drvga_write_text(UWORD posx, UWORD posy, char *text);
+void drvga_write_char(UWORD posx, UWORD posy, char text);
+void drvga_set_text_area(UWORD x0, UWORD y0, UWORD x1, UWORD y1);
+void drvga_clear_screen(UWORD color);
+void drvga_draw_box(UWORD color, UWORD x0, UWORD y0, UWORD x1, UWORD y1);
+void drvga_draw_line(UWORD color, UWORD x0, UWORD y0, UWORD x1, UWORD y1);
+void drvga_draw_pixel(UWORD color, UWORD x, UWORD y);
+void drvga_set_memory_ptr(ULONG addr);
+void drvga_write_memory_block(UWORD *data, ULONG datalen);
+
+
 #ifdef __GNUC__
 #  define UNUSED(x) UNUSED_ ## x __attribute__((__unused__))
 #else
