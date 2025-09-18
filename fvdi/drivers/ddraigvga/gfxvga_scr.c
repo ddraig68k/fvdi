@@ -8,6 +8,9 @@
 #include "gfxvga.h"
 #include "driver.h"
 
+#define PIXEL       unsigned short
+#define PIXEL_SIZE  sizeof(PIXEL)
+
 /*
  * Destination MFDB (odd address marks table operation)
  * x or table address
@@ -18,16 +21,20 @@ long CDECL
 c_write_pixel(Virtual *vwk, MFDB *dst, long x, long y, long colour)
 {
     Workstation *wk;
-    int offset;
+    ULONG offset;
+    PIXEL *videomem = (PIXEL *)0xa00000;
 
     if ((long)vwk & 1)
         return 0;
 
+
     wk = vwk->real_address;
     if (!dst || !dst->address) {
         // Write the pixel to the screen memory
-        offset = (y * wk->screen.mfdb.width) + x;
-        *(UWORD *)((long)wk->screen.mfdb.address + offset) = colour;
+        //offset = (y * 640 * 2) + (x * PIXEL_SIZE);
+        videomem[(y * 640) + x] = colour;
+
+        //*(PIXEL *)((long) + offset) = colour;
     }
     
     // TODO: Implment double buffering support.
@@ -47,8 +54,9 @@ long CDECL
 c_read_pixel(Virtual *vwk, MFDB *src, long x, long y)
 {
 	Workstation *wk;
-    int offset;
+    ULONG offset;
     UWORD colour;
+    PIXEL *videomem = (PIXEL *)0xa00000;
 
     // static uint16_t offscreen_y_offset = 0, screen_width = 0;
     // if (offscreen_y_offset == 0) {
@@ -56,8 +64,9 @@ c_read_pixel(Virtual *vwk, MFDB *src, long x, long y)
     //     screen_width = vwk->real_address->screen.mfdb.width;
     // }
 
-    offset = (y * wk->screen.mfdb.width) + x;
-    colour = *(UWORD *)((long)src->address + offset);
+    //offset = (y * 640 * 2) + (x * PIXEL_SIZE);
+    //colour = *(PIXEL *)(0xa00000 + offset);
+    colour = videomem[(y * 640) + x];
 
     return colour;
 }

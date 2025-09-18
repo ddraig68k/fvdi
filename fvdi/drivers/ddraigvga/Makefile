@@ -30,6 +30,7 @@ CSRC = \
 	gfxvga_spec.c \
 	gfxvga_pal.c \
 	gfxvga_scr.c \
+	gfxvga_mouse.c \
 	gfxvga.c
 
 # handle DevPac -> gas conversions

@@ -18,6 +18,8 @@ extern ULONG g_gfxfpga_base;
 long CDECL c_write_pixel(Virtual *vwk, MFDB *mfdb, long x, long y, long colour);
 long CDECL c_read_pixel(Virtual *vwk, MFDB *mfdb, long x, long y);
 
+long CDECL c_mouse_draw(Workstation *wk, long x, long y, Mouse *mouse);
+
 long CDECL c_get_colour(Virtual *vwk, long colour);
 void CDECL c_set_colours(Virtual *vwk, long start, long entries, unsigned short *requested, Colour palette[]);
 

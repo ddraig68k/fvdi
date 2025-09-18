@@ -23,6 +23,8 @@ fvdi/drivers/firebee/firebee.sys
 fvdi/drivers/radeon/radeon.sys
 fvdi/drivers/saga/saga.sys
 fvdi/drivers/uaegfx/uaegfx.sys
+fvdi/drivers/xosara/xosara.sys
+fvdi/drivers/gfxvga/gfxvga.sys
 struct.tab.c
 struct.tab.h
 lex.yy.c
