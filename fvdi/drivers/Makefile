@@ -13,6 +13,7 @@ DRV_SUBDIRS = \
 	saga \
     xosera \
 	ddraigvga \
+	gfxvga \
 	$(empty)
 
 ifeq ($(CPU),v4e)

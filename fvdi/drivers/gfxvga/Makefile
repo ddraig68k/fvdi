@@ -70,5 +70,5 @@ clean:: clean_gnu
 install::
 	mkdir -p $(DESTDIR)/gemsys
 	cp -a $(TARGET) $(DESTDIR)/gemsys/$(TARGET)
-	cp -a fvdi.sys "$(DESTDIR)/fvdixos.sys"
+	cp -a fvdi.sys "$(DESTDIR)/fvdigvga.sys"
 

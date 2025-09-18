@@ -4,6 +4,8 @@
 
 #include "fvdi.h"
 #include "driver.h"
+#include "relocate.h"
+#include "../bitplane/bitplane.h"
 #include "string/memset.h"
 #include "gfxvga.h"
 
@@ -16,7 +18,7 @@ static Mode const mode[1] = {
     { 16, CHUNKY | TRUE_COLOUR, { r_16, g_16, b_16, none, none, none }, 0, 2, 2, 1 }
 };
 
-char driver_name[] = "GfxVGA";
+char driver_name[] = "Y Ddraig GfxVGA";
 
 long CDECL (*write_pixel_r)(Virtual *vwk, MFDB *mfdb, long x, long y, long colour) = c_write_pixel;
 long CDECL (*read_pixel_r)(Virtual *vwk, MFDB *mfdb, long x, long y) = c_read_pixel;
@@ -34,14 +36,18 @@ void CDECL (*set_colours_r)(Virtual *vwk, long start, long entries, unsigned sho
 
 long wk_extend = 0;
 short accel_s = 0;
-short accel_c = A_MOUSE;
+short accel_c = A_SET_PAL | A_GET_COL | A_SET_PIX | A_GET_PIX | A_MOUSE;
 
 const Mode *graphics_mode = &mode[0];
 
 uint32_t gfxvga_mem_base = 0xA00000;
 
+short fix_shape = 0;
+short no_restore = 0;
+
+
 static Option const options[] = {
-        {"debug", {&debug},     1},
+        {"debug", {&debug}, 2},
 };
 
 /*
@@ -109,7 +115,7 @@ long CDECL initialize(Virtual *vwk)
     vwk = me->default_vwk;        /* This is what we're interested in */
     wk = vwk->real_address;
 
-    const short width = 640, height = 240, bits_per_pixel = 4;
+    const short width = 640, height = 480, bits_per_pixel = 16;
 
     /* update the settings */
     wk->screen.mfdb.width = width;
@@ -122,7 +128,7 @@ long CDECL initialize(Virtual *vwk)
     wk->screen.coordinates.max_x = (short) (wk->screen.mfdb.width - 1);
     wk->screen.coordinates.max_y = (short) (wk->screen.mfdb.height - 1);
 
-    wk->screen.look_up_table = 1;
+    wk->screen.look_up_table = 0;
     wk->screen.mfdb.standard = 0;
 
     if (wk->screen.pixel.width > 0)  /* Starts out as screen width in millimeters. Convert to microns per pixel. */
