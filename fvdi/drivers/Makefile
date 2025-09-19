@@ -12,7 +12,6 @@ DRV_SUBDIRS = \
 	uaegfx \
 	saga \
     xosera \
-	ddraigvga \
 	gfxvga \
 	$(empty)
 

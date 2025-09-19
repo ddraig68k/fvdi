@@ -34,7 +34,8 @@ CSRC = \
 	gfxvga_line.c \
 	gfxvga_fill.c \
 	gfxvga_mouse.c \
-	gfxvga_blit.c
+	gfxvga_blit.c \
+	gfxvga_exp.c
 
 # handle DevPac -> gas conversions
 # defines SSRC_GNU and SINCSRC_GNU variables

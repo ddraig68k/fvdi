@@ -36,3 +36,4 @@ fvdi.cflags
 fvdi.cxxflags
 .clang*
 *~
+.vscode/
