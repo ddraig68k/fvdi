@@ -15,6 +15,15 @@
 #define PIXEL_SIZE	sizeof(PIXEL)
 #define PIXEL_32    long
 
+
+static int is_solid_pattern(const short *pattern)
+{
+    for (int i = 0; i < 16; i++) {
+        if (pattern[i] != 0xFFFF) return 0;
+    }
+    return 1;
+}
+
 /*
  * Make it as easy as possible for the C compiler.
  * The current code is written to produce reasonable results with Lattice C.

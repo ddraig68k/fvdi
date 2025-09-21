@@ -54,7 +54,7 @@ void CDECL (*set_colours_r)(Virtual *vwk, long start, long entries, unsigned sho
 
 long wk_extend = 0;
 short accel_s = 0;
-short accel_c = A_SET_PAL | A_GET_COL | A_SET_PIX | A_GET_PIX | A_MOUSE;
+short accel_c = A_SET_PAL | A_GET_COL | A_SET_PIX | A_GET_PIX | A_BLIT | A_FILL | A_EXPAND | A_LINE | A_MOUSE;
 
 const Mode *graphics_mode = &mode[0];
 
