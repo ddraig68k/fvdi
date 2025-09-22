@@ -128,24 +128,6 @@ long check_token(char *token, const char **ptr)
 
 static short *screen_address;
 
-static void vbl_handler(void)
-{   
-    // Clear the VGA interrupt flag
-    DRVGA_REG_WRITE(REG_STATUS, 0x04);
-}
-
-typedef void (*PFVOID)(void);
-
-static void install_to_vblqueue(PFVOID handler)
-{
-    PFVOID **vblqueue = (PFVOID **)(0x456); /* Pointer to the VBL queue array */
-    PFVOID *vbl_list = NULL;
-    if (vblqueue)
-        vbl_list = *vblqueue;
-    if (vbl_list)
-        vbl_list[1] = handler;
-}
-
 /*
  * Do whatever setup work might be necessary on boot up
  * and which couldn't be done directly while loading.
@@ -212,13 +194,8 @@ long CDECL initialize(Virtual *vwk)
     access->funcs.cat(".\r\n", str);
     access->funcs.puts(str);
 
-    // Install the vertical blank handler
-    install_to_vblqueue(vbl_handler);
-
 	g_gfxfpga_base = 0x00F7F500;
 	drvga_write_control_reg(DISPMODE_BITMAPHIRES);
-    // Enable vblank inerrupt
-    DRVGA_REG_WRITE(REG_INTERRUPT, 0x0001);
 
     device.byte_width = wk->screen.wrap;
     device.address = wk->screen.mfdb.address;
