@@ -2,6 +2,8 @@
  * Initialization code for the Y Ddraig GfxVGA FVDI driver.
  */
 
+ #define FVDI_DEBUG 1
+
 #include "fvdi.h"
 #include "gfxvga.h"
 #include <os.h>
@@ -9,7 +11,6 @@
 #include "driver.h"
 #include "utility.h"
 #include "string/memset.h"
-
 
 static char const r_16[] = { 5, 11, 12, 13, 14, 15 };
 static char const g_16[] = { 6,  5,  6,  7,  8,  9, 10 };
@@ -142,6 +143,8 @@ long CDECL initialize(Virtual *vwk)
     access->funcs.puts("Initializing GfxVGA driver...\r\n");
     
     screen_address = (short *)0xA00000;
+
+    PRINTF(("GfxVGA: initialize() called, mem address = %06X\n\r", (unsigned int)screen_address));
 
     vwk = me->default_vwk;        /* This is what we're interested in */
     wk = vwk->real_address;

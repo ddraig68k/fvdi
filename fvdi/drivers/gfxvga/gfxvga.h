@@ -16,6 +16,9 @@ typedef ULONG IPTR;
 #define TRUE 1
 #define FALSE 0
 
+//#define kprintf (*(void *)0x0080526c)
+
+
 extern ULONG g_gfxfpga_base;
 
 #define DRVGA_TEXTBUF_SIZE  2400
