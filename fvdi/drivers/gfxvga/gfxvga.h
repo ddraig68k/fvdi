@@ -43,50 +43,14 @@ extern ULONG g_gfxfpga_base;
 
 #define REG_BITMAP_PTR_L		0x30    // Bitmap data address location (L) 
 #define REG_BITMAP_PTR_H		0x32    // Bitmap data address location (H)
-#define REG_BITMAP_SCROLL_X 	0x34    // Bitmap horizontal scroll position
-#define REG_BITMAP_SCROLL_Y 	0x36    // Bitmap vertical scroll position
 
-#define REG_LAYER1_PTR_L	    0x38    // Tile layer 1 data address location (L)
-#define REG_LAYER1_PTR_H	    0x3A    // Tile layer 1 data address location (H)
-#define REG_LAYER1_SCROLL_X	    0x3C    // Tile later 1 horizontal scroll position77
-#define REG_LAYER1_SCROLL_Y	    0x3E    // Tile later 1 vertical scroll position
-#define REG_LAYER1_IDX		    0x40    // Tile later 1 map index
-#define REG_LAYER2_PTR_L	    0x42    // Tile layer 2 data address location (L)
-#define REG_LAYER2_PTR_H	    0x44    // Tile layer 2 data address location (H)
-#define REG_LAYER2_SCROLL_X	    0x46    // Tile later 2 horizontal scroll position77
-#define REG_LAYER2_SCROLL_Y	    0x48    // Tile later 2 vertical scroll position
-#define REG_LAYER2_IDX		    0x4A    // Tile later 2 map index
+#define CMD_NONE                0x00
+#define CMD_FILL_RECT           0x01
+#define CMD_DRAW_LINE           0x02
+#define CMD_CLEAR_SCREEN        0x03
 
-#define REG_SPRITE_PTR_L		0x4C    // Sprite data address location (L)
-#define REG_SPRITE_PRT_H		0x4E    // Sprite data address location (H)
-#define REG_SPRITE_IDX			0x50    // Sprite index
-#define REG_SPRITE_CONTROL		0x52    // Sprite control data
-#define REG_SPRITE_POSITION_X	0x54    // Sprite horizontal position
-#define REG_SPRITE_POSITION_Y	0x56    // Sprite vertical position
-
-// Debug code
-#define REG_VGA_ADDR_0      	0x58    // VGA Debug register
-#define REG_VGA_ADDR_1      	0x5A    // VGA Debug register
-#define REG_VGA_ADDR_2      	0x5C    // VGA Debug register
-#define REG_VGA_ADDR_3      	0x5E    // VGA Debug register
-
-
-
-#define	REG_PARAM_COLOR         REG_PARAM_DATA0
-#define	REG_PARAM_X0            REG_PARAM_DATA1
-#define	REG_PARAM_Y0            REG_PARAM_DATA2
-#define	REG_PARAM_X1            REG_PARAM_DATA3
-#define	REG_PARAM_Y1            REG_PARAM_DATA4
-
-
-#define CMD_CLEAR_SCREEN        0x0001
-#define CMD_FILL_RECT           0x0002
-#define CMD_DRAW_PIXEL          0x0003
-#define CMD_DRAW_LINE           0x0004
-#define CMD_SET_CHARACTER       0x0010
-#define CMD_SET_TEXTCOLOR       0x0011
-#define CMD_SET_TEXTAREA        0x0012
-#define CMD_MEMORY_ACCESS       0x0020
+#define CMD_SET_CHARACTER       0x10
+#define CMD_MEMORY_ACCESS       0x20
 
 // Status register masks
 #define STATUS_READY            0x0001
@@ -160,11 +124,9 @@ void drvga_wait_vblank_clear(void);
 void drvga_clear_text(void);
 void drvga_write_text(UWORD posx, UWORD posy, char *text);
 void drvga_write_char(UWORD posx, UWORD posy, char text);
-void drvga_set_text_area(UWORD x0, UWORD y0, UWORD x1, UWORD y1);
 void drvga_clear_screen(UWORD color);
-void drvga_draw_box(UWORD color, UWORD x0, UWORD y0, UWORD x1, UWORD y1);
-void drvga_draw_line(UWORD color, UWORD x0, UWORD y0, UWORD x1, UWORD y1);
-void drvga_draw_pixel(UWORD color, UWORD x, UWORD y);
+void drvga_solid_box(UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color);
+void drvga_solid_line(UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color);
 void drvga_set_memory_ptr(ULONG addr);
 void drvga_write_memory_block(UWORD *data, ULONG datalen);
 

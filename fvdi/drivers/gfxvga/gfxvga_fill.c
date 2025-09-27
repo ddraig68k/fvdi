@@ -16,10 +16,11 @@
 #define PIXEL_32    long
 
 
-static int is_solid_pattern(const short *pattern)
+static int is_solid_pattern(const UWORD *pattern)
 {
     for (int i = 0; i < 16; i++) {
-        if (pattern[i] != 0xFFFF) return 0;
+        if (pattern[i] != 0xFFFF)
+            return 0;
     }
     return 1;
 }
@@ -47,17 +48,16 @@ static void fill_replace(PIXEL *addr, PIXEL *addr_fast, int line_add, short *pat
     /* Tell gcc that this cannot happen (already checked in c_fill_area() below) */
     if (w <= 0 || h <= 0)
         unreachable();
-    for(; i < h; i++) {
-        pattern_word = pattern[i & 0x000f];
-        switch (pattern_word) {
-        case 0xffff:
-            for(j = w - 1; j >= 0; j--) {
-                *addr = foreground;
-                addr++;
-            }
-            break;
-        default:
-            mask = x;
+
+    if (is_solid_pattern(pattern))
+    {
+        drvga_solid_box(x, y, x + w, y + h, foreground);
+    }
+    else
+    {
+        for(; i < h; i++) {
+            pattern_word = pattern[i & 0x000f];
+                    mask = x;
             for(j = w - 1; j >= 0; j--) {
                 if (pattern_word & mask) {
                     *addr = foreground;
@@ -69,9 +69,8 @@ static void fill_replace(PIXEL *addr, PIXEL *addr_fast, int line_add, short *pat
                 if (!(mask >>= 1))
                     mask = 0x8000;
             }
-            break;
+            addr += line_add;
         }
-        addr += line_add;
     }
 }
 
