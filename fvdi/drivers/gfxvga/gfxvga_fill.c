@@ -48,16 +48,17 @@ static void fill_replace(PIXEL *addr, PIXEL *addr_fast, int line_add, short *pat
     /* Tell gcc that this cannot happen (already checked in c_fill_area() below) */
     if (w <= 0 || h <= 0)
         unreachable();
-
-    if (is_solid_pattern(pattern))
-    {
-        drvga_solid_box(x, y, x + w, y + h, foreground);
-    }
-    else
-    {
-        for(; i < h; i++) {
-            pattern_word = pattern[i & 0x000f];
-                    mask = x;
+    for(; i < h; i++) {
+        pattern_word = pattern[i & 0x000f];
+        switch (pattern_word) {
+        case 0xffff:
+            for(j = w - 1; j >= 0; j--) {
+                *addr = foreground;
+                addr++;
+            }
+            break;
+        default:
+            mask = x;
             for(j = w - 1; j >= 0; j--) {
                 if (pattern_word & mask) {
                     *addr = foreground;
@@ -69,8 +70,9 @@ static void fill_replace(PIXEL *addr, PIXEL *addr_fast, int line_add, short *pat
                 if (!(mask >>= 1))
                     mask = 0x8000;
             }
-            addr += line_add;
+            break;
         }
+        addr += line_add;
     }
 }
 
@@ -234,6 +236,18 @@ long CDECL c_fill_area(Virtual *vwk, long x, long y, long w, long h,
     pos = (short)y * (long)wk->screen.wrap + x * 2;
     addr = wk->screen.mfdb.address;
     line_add = (wk->screen.wrap - w * 2) >> 1;
+
+    int16_t fill_type = (int16_t)((interior_style >> 16) & 0xFFFF);
+    int16_t pattern_index = (int16_t)(interior_style & 0xFFFF);
+    int solid_pattern = (fill_type == 0) || (fill_type == 1) || ((fill_type == 2) && (pattern_index == 8)) ||
+        is_solid_pattern((const uint16_t *) pattern);
+
+    if (solid_pattern)
+    {
+        long hw_color = c_get_colour(vwk, colour & 0xFFFF);
+        drvga_solid_box(x, y, x + w, y + h,  hw_color);
+        return 1;
+    }
 
     addr += pos / PIXEL_SIZE;
     switch (mode) {
