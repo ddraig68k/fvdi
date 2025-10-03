@@ -3,6 +3,8 @@
 #include "fvdi.h"
 #include "driver.h"
 #include "../bitplane/bitplane.h"
+
+#define FVDI_DEBUG 1
 #include "gfxvga.h"
 
 #define PIXEL		short
@@ -143,8 +145,6 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
 
     wk = vwk->real_address;
 
-    DPRINTF(("GfxVGA: c_expand_area: sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
-
     c_get_colours(vwk, colour, &foreground, &background);
 
     src_wrap = (long)src->wdwidth * 2;      /* Always monochrome */
@@ -173,15 +173,19 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
 
     switch (operation) {
     case 1:             /* Replace */
+        DPRINTF(("c_expand_area: mode=replace sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
         replace(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
         break;
     case 2:             /* Transparent */
+        DPRINTF(("c_expand_area: mode=transparent sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
         transparent(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
         break;
     case 3:             /* XOR */
+        DPRINTF(("c_expand_area: mode=xor sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
         xor(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
         break;
     case 4:             /* Reverse transparent */
+        DPRINTF(("c_expand_area: mode=revtrans sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
         revtransp(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
         break;
     }

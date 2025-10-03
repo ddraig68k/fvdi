@@ -5,9 +5,9 @@
  *
  */
 
-// #define FVDI_DEBUG 1
-
+#define FVDI_DEBUG 1
 #include "gfxvga.h"
+
 #include "fvdi.h"
 #include "driver.h"
 #include "../bitplane/bitplane.h"
@@ -297,12 +297,12 @@ long CDECL c_line_draw(Virtual *vwk, long x1, long y1, long x2, long y2,
     }
     both_step = x_step + y_step;
 
-    DPRINTF(("GfxVGA: c_line_draw : calling x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
 
     addr += pos >> 1;
     if ((pattern & 0xffff) == 0xffff) {
         switch (mode) {
         case 1:             /* Replace */
+            DPRINTF(("c_line_draw: mode=replace x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
             // Check if horizontal or vertical line and solid line
             if ((x1 == y2) || (x1 == y2))
             {
@@ -313,27 +313,34 @@ long CDECL c_line_draw(Virtual *vwk, long x1, long y1, long x2, long y2,
                 line_replace(addr, addr_fast, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 2:             /* Transparent */
+            DPRINTF(("c_line_draw: mode=transparent x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
             line_transparent(addr, addr_fast, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 3:             /* XOR */
+            DPRINTF(("c_line_draw: mode=xor x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
             line_xor(addr, addr_fast, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 4:             /* Reverse transparent */
+            DPRINTF(("c_line_draw: mode=revtrans x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
             line_revtransp(addr, addr_fast, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         }
     } else {
         switch (mode) {
         case 1:             /* Replace */
+            DPRINTF(("c_line_draw: mode=pat_replace x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
             line_replace_p(addr, addr_fast, pattern, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 2:             /* Transparent */
+            DPRINTF(("c_line_draw: mode=pat_trans x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
             line_transparent_p(addr, addr_fast, pattern, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 3:             /* XOR */
+            DPRINTF(("c_line_draw: mode=pat_xor x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
             line_xor_p(addr, addr_fast, pattern, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 4:             /* Reverse transparent */
+            DPRINTF(("c_line_draw: mode=pat_revtrans x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
             line_revtransp_p(addr, addr_fast, pattern, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         }
