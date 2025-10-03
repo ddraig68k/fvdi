@@ -2,7 +2,7 @@
  * Initialization code for the Y Ddraig GfxVGA FVDI driver.
  */
 
- #define FVDI_DEBUG 1
+#define FVDI_DEBUG 1
 
 #include "fvdi.h"
 #include "gfxvga.h"
@@ -11,6 +11,11 @@
 #include "driver.h"
 #include "utility.h"
 #include "string/memset.h"
+
+#ifdef FVDI_DEBUG
+kprintf_func_t my_kprintf = (kprintf_func_t)(uintptr_t)KPRINTF_ADDRESS;
+#endif 
+
 
 static char const r_16[] = { 5, 11, 12, 13, 14, 15 };
 static char const g_16[] = { 6,  5,  6,  7,  8,  9, 10 };
@@ -144,7 +149,7 @@ long CDECL initialize(Virtual *vwk)
     
     screen_address = (short *)0xA00000;
 
-    PRINTF(("GfxVGA: initialize() called, mem address = %06X\n\r", (unsigned int)screen_address));
+    DPRINTF(("GfxVGA: initialize()\n\r"));
 
     vwk = me->default_vwk;        /* This is what we're interested in */
     wk = vwk->real_address;
@@ -216,6 +221,8 @@ long CDECL setup(long type, long value)
 {
     long ret;
 
+    DPRINTF(("GfxVGA: setup()\n\r"));
+
     ret = -1;
     switch (type) {
         case Q_NAME:
@@ -231,6 +238,9 @@ long CDECL setup(long type, long value)
 
 Virtual *CDECL opnwk(Virtual *vwk)
 {
+
+    DPRINTF(("GfxVGA: opnwk()\n\r"));
+
     Workstation *wk;
 
     vwk = me->default_vwk;  /* This is what we're interested in */
@@ -286,6 +296,7 @@ Virtual *CDECL opnwk(Virtual *vwk)
  * 'Deinitialize'
  */
 void CDECL clswk(Virtual *vwk)
-{
+{    
+    DPRINTF(("GfxVGA: clswk()\n\r"));
     (void) vwk;
 }

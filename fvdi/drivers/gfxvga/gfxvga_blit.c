@@ -6,6 +6,9 @@
 #include "driver.h"
 #include "../bitplane/bitplane.h"
 
+//#define FVDI_DEBUG 1
+#include "gfxvga.h"
+
 #define PIXEL		short
 #define PIXEL_SIZE	sizeof(PIXEL)
 #define PIXEL_32    long
@@ -376,6 +379,8 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     int src_line_add, dst_line_add;
     unsigned long src_pos, dst_pos;
     int to_screen;
+
+    DPRINTF(("GfxVGA: c_blit_area: sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
 
     if (w <= 0 || h <= 0)
         return 1;

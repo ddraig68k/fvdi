@@ -1,6 +1,9 @@
+//#define FVDI_DEBUG 1
+
 #include "fvdi.h"
 #include "driver.h"
 #include "../bitplane/bitplane.h"
+#include "gfxvga.h"
 
 #define PIXEL		short
 #define PIXEL_SIZE	sizeof(PIXEL)
@@ -139,6 +142,8 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
     int to_screen;
 
     wk = vwk->real_address;
+
+    DPRINTF(("GfxVGA: c_expand_area: sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
 
     c_get_colours(vwk, colour, &foreground, &background);
 

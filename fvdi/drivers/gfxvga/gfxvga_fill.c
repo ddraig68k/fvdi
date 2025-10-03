@@ -4,12 +4,14 @@
  * Implements driver API function c_fill_area().
  */
 
-#include "gfxvga.h"
 #include "driver.h"
 
 #include "fvdi.h"
 #include "driver.h"
 #include "../bitplane/bitplane.h"
+
+#define FVDI_DEBUG 1
+#include "gfxvga.h"
 
 #define PIXEL		short
 #define PIXEL_SIZE	sizeof(PIXEL)
@@ -19,6 +21,7 @@
 static int is_solid_pattern(const UWORD *pattern)
 {
     for (int i = 0; i < 16; i++) {
+        DPRINTF(("pattern %d = %04X\n\r", i, pattern[i]));
         if (pattern[i] != 0xFFFF)
             return 0;
     }
@@ -214,6 +217,8 @@ long CDECL c_fill_area(Virtual *vwk, long x, long y, long w, long h,
     unsigned long pos;
     short *table;
 
+    DPRINTF(("GfxVGA: c_fill_area:\n\r"));        
+
     if (w <= 0 || h <= 0)
         return 1;
 
@@ -239,28 +244,32 @@ long CDECL c_fill_area(Virtual *vwk, long x, long y, long w, long h,
 
     int16_t fill_type = (int16_t)((interior_style >> 16) & 0xFFFF);
     int16_t pattern_index = (int16_t)(interior_style & 0xFFFF);
-    int solid_pattern = (fill_type == 0) || (fill_type == 1) || ((fill_type == 2) && (pattern_index == 8)) ||
-        is_solid_pattern((const uint16_t *) pattern);
-
-    if (solid_pattern)
-    {
-        long hw_color = c_get_colour(vwk, colour & 0xFFFF);
-        drvga_solid_box(x, y, x + w, y + h,  hw_color);
-        return 1;
-    }
+    int solid_pattern = (fill_type == 0) || (fill_type == 1) || ((fill_type == 2) && (pattern_index == 8)) 
+        || ((fill_type == 2) && (pattern_index == 4)) || is_solid_pattern(pattern);
+    DPRINTF(("GfxVGA: c_fill_area: fill_type=%d, pattern_index=%d is_solid_pattern=%d\n\r", fill_type, pattern_index, solid_pattern));
 
     addr += pos / PIXEL_SIZE;
     switch (mode) {
     case 1:             /* Replace */
-        fill_replace(addr, addr_fast, line_add, pattern, x, y, w, h, foreground, background);
+        DPRINTF(("GfxVGA: c_fill_area: calling fill_replace x=%ld,y=%ld,w=%ld,h=%ld color=%04lX\n\r", x, y, w, h, foreground));
+        if (solid_pattern)
+        {
+            DPRINTF(("GfxVGA: c_fill_area: drvga_solid_box\n\r"));
+            drvga_solid_box(x, y, x + w -1, y + h - 1,  foreground);
+        }
+        else
+            fill_replace(addr, addr_fast, line_add, pattern, x, y, w, h, foreground, background);
         break;
     case 2:             /* Transparent */
+        DPRINTF(("GfxVGA: c_fill_transparent: calling fill_transparent x=%ld,y=%ld,w=%ld,h=%ld\n\r", x, y, w, h));        
         fill_transparent(addr, addr_fast, line_add, pattern, x, y, w, h, foreground, background);
         break;
     case 3:             /* XOR */
+        DPRINTF(("GfxVGA: c_fill_xor: calling fill_transparent x=%ld,y=%ld,w=%ld,h=%ld\n\r", x, y, w, h));        
         fill_xor(addr, addr_fast, line_add, pattern, x, y, w, h, foreground, background);
         break;
     case 4:             /* Reverse transparent */
+        DPRINTF(("GfxVGA: c_fill_revtransp: calling fill_transparent x=%ld,y=%ld,w=%ld,h=%ld\n\r", x, y, w, h));        
         fill_revtransp(addr, addr_fast, line_add, pattern, x, y, w, h, foreground, background);
         break;
     }

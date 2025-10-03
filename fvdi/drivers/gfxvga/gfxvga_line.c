@@ -5,6 +5,8 @@
  *
  */
 
+// #define FVDI_DEBUG 1
+
 #include "gfxvga.h"
 #include "fvdi.h"
 #include "driver.h"
@@ -295,12 +297,14 @@ long CDECL c_line_draw(Virtual *vwk, long x1, long y1, long x2, long y2,
     }
     both_step = x_step + y_step;
 
+    DPRINTF(("GfxVGA: c_line_draw : calling x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
+
     addr += pos >> 1;
     if ((pattern & 0xffff) == 0xffff) {
         switch (mode) {
         case 1:             /* Replace */
             // Check if horizontal or vertical line and solid line
-            if ((x1 == x2) || (y1 == y2))
+            if ((x1 == y2) || (x1 == y2))
             {
                 // Use hardware acceleration
                 drvga_solid_line(x1, x2, y1, y2, foreground);
