@@ -302,45 +302,45 @@ long CDECL c_line_draw(Virtual *vwk, long x1, long y1, long x2, long y2,
     if ((pattern & 0xffff) == 0xffff) {
         switch (mode) {
         case 1:             /* Replace */
-            DPRINTF(("c_line_draw: mode=replace x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
+            DPRINTF(("c_line_draw: mode=replace x1=%ld,y1=%ld,x2=%ld,y2=%ld color=%04X\n\r", x1, y1, x2, y2, (int)foreground));
             // Check if horizontal or vertical line and solid line
             if ((x1 == y2) || (x1 == y2))
             {
                 // Use hardware acceleration
-                drvga_solid_line(x1, x2, y1, y2, foreground);
+                drvga_solid_line(x1, y1, x2, y2, foreground);
             } 
             else
                 line_replace(addr, addr_fast, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 2:             /* Transparent */
-            DPRINTF(("c_line_draw: mode=transparent x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
+            DPRINTF(("c_line_draw: mode=transparent x1=%ld,y1=%ld,x2=%ld,y2=%ld color=%04X\n\r", x1, y1, x2, y2, (int)foreground));
             line_transparent(addr, addr_fast, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 3:             /* XOR */
-            DPRINTF(("c_line_draw: mode=xor x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
+            DPRINTF(("c_line_draw: mode=xor x1=%ld,y1=%ld,x2=%ld,y2=%ld color=%04X\n\r", x1, y1, x2, y2, (int)foreground));
             line_xor(addr, addr_fast, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 4:             /* Reverse transparent */
-            DPRINTF(("c_line_draw: mode=revtrans x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
+            DPRINTF(("c_line_draw: mode=revtrans x1=%ld,y1=%ld,x2=%ld,y2=%ld color=%04X\n\r", x1, y1, x2, y2, (int)foreground));
             line_revtransp(addr, addr_fast, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         }
     } else {
         switch (mode) {
         case 1:             /* Replace */
-            DPRINTF(("c_line_draw: mode=pat_replace x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
+            DPRINTF(("c_line_draw: mode=pat_replace x1=%ld,y1=%ld,x2=%ld,y2=%ld pattern=%d color=%04X\n\r", x1, y1, x2, y2, (int)pattern, (int)foreground));
             line_replace_p(addr, addr_fast, pattern, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 2:             /* Transparent */
-            DPRINTF(("c_line_draw: mode=pat_trans x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
+            DPRINTF(("c_line_draw: mode=pat_trans x1=%ld,y1=%ld,x2=%ld,y2=%ld pattern=%d color=%04X\n\r", x1, y1, x2, y2, (int)pattern, (int)foreground));
             line_transparent_p(addr, addr_fast, pattern, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 3:             /* XOR */
-            DPRINTF(("c_line_draw: mode=pat_xor x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
+            DPRINTF(("c_line_draw: mode=pat_xor x1=%ld,y1=%ld,x2=%ld,y2=%ld pattern=%d color=%04X\n\r", x1, y1, x2, y2, (int)pattern, (int)foreground));
             line_xor_p(addr, addr_fast, pattern, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         case 4:             /* Reverse transparent */
-            DPRINTF(("c_line_draw: mode=pat_revtrans x1=%ld,x2=%ld,y1=%ld,y2=%ld mode=%ld\n\r", x1, x2, y1, y2, mode));
+            DPRINTF(("c_line_draw: mode=pat_revtrans x1=%ld,y1=%ld,x2=%ld,y2=%ld pattern=%d color=%04X\n\r", x1, y1, x2, y2, (int)pattern, (int)foreground));
             line_revtransp_p(addr, addr_fast, pattern, count, d, incrE, incrNE, one_step, both_step, foreground, background);
             break;
         }

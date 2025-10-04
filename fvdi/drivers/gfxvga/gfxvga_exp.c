@@ -171,21 +171,24 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
 
     dst_addr_fast = wk->screen.shadow.address;  /* May not really be to screen at all, but... */
 
+    DPRINTF(("c_expand_area: src MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r", (ULONG)src->address, src->width, src->height, src->wdwidth, src->standard, src->bitplanes));
+    DPRINTF(("c_expand_area: dst MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r", (ULONG)dst->address, dst->width, dst->height, dst->wdwidth, dst->standard, dst->bitplanes));
+
     switch (operation) {
     case 1:             /* Replace */
-        DPRINTF(("c_expand_area: mode=replace sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
+        DPRINTF(("c_expand_area: mode=replace saddr=%lX,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
         replace(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
         break;
     case 2:             /* Transparent */
-        DPRINTF(("c_expand_area: mode=transparent sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
+        DPRINTF(("c_expand_area: mode=trans saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
         transparent(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
         break;
     case 3:             /* XOR */
-        DPRINTF(("c_expand_area: mode=xor sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
+        DPRINTF(("c_expand_area: mode=xor saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
         xor(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
         break;
     case 4:             /* Reverse transparent */
-        DPRINTF(("c_expand_area: mode=revtrans sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
+        DPRINTF(("c_expand_area: mode=revtrans saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
         revtransp(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
         break;
     }

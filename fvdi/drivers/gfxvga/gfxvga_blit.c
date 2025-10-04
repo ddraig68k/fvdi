@@ -383,6 +383,10 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     if (w <= 0 || h <= 0)
         return 1;
 
+    DPRINTF(("c_blit_area called: sx=%ld,sy=%ld,dx=%ld,dy=%ld w=%ld,h%ld\n\r", (ULONG)src, src_x, src_y, dst_x, dst_y, w, h));
+    DPRINTF(("c_blit_area: src MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r", (ULONG)src->address, src->width, src->height, src->wdwidth, src->standard, src->bitplanes));
+    DPRINTF(("c_blit_area: dst MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r", (ULONG)dst->address, dst->width, dst->height, dst->wdwidth, dst->standard, dst->bitplanes));
+
     wk = vwk->real_address;
 
     if (!src || !src->address || (src->address == wk->screen.mfdb.address)) {       /* From screen? */
@@ -429,30 +433,30 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
         dst_line_add += 2 * w;
         switch(operation) {
         case 3:
-            DPRINTF(("c_blit_area: mode=pen_backcopy sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
+            DPRINTF(("c_blit_area: mode=pen_backcopy saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
             pan_backwards_copy(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h);
             break;
         case 7:
-            DPRINTF(("c_blit_area: mode=pen_back_or sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
+            DPRINTF(("c_blit_area: mode=pen_back_or saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
             pan_backwards_or(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h);
             break;
         default:
-            DPRINTF(("c_blit_area: mode=pen_back sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
+            DPRINTF(("c_blit_area: mode=pen_back saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
             pan_backwards(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h, operation);
             break;
         }
     } else {
         switch(operation) {
         case 3:
-            DPRINTF(("c_blit_area: mode=blit_copy sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
+            DPRINTF(("c_blit_area: mode=blit_copy saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
             blit_copy(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h);
             break;
         case 7:
-            DPRINTF(("c_blit_area: mode=blit_or sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
+            DPRINTF(("c_blit_area: mode=blit_or saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
             blit_or(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h);
             break;
         default:
-            DPRINTF(("c_blit_area: mode=blit_default sx=%ld,sy=%ld,dx=%ld,dy=%ld\n\r", src_x, src_y, dst_x, dst_y));
+            DPRINTF(("c_blit_area: mode=blit_default saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
             blit_16b(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h, operation);
             break;
         }
