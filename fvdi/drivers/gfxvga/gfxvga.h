@@ -17,7 +17,7 @@ typedef ULONG IPTR;
 #define FALSE 0
 
 
-#define KPRINTF_ADDRESS 0x0080526c
+#define KPRINTF_ADDRESS 0x80517c
 typedef int (*kprintf_func_t)(const char *fmt, ...);
 extern kprintf_func_t my_kprintf;
 #ifdef FVDI_DEBUG

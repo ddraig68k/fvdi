@@ -73,25 +73,26 @@ void drvga_write_char(UWORD posx, UWORD posy, char text)
 void drvga_clear_screen(UWORD color)
 {
     // Set the screen fill color
+    drvga_wait_busy();
 	DRVGA_REG_WRITE(REG_PARAM_DATA0, color);
 	DRVGA_REG_WRITE(REG_COMMAND, CMD_CLEAR_SCREEN);
-    drvga_wait_busy();
 }
 
 void drvga_solid_box(UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color)
 {
+    drvga_wait_busy();
     DRVGA_REG_WRITE(REG_PARAM_DATA0, x0);
-    DRVGA_REG_WRITE(REG_PARAM_DATA1, x1);
-    DRVGA_REG_WRITE(REG_PARAM_DATA2, y0);
+    DRVGA_REG_WRITE(REG_PARAM_DATA1, y0);
+    DRVGA_REG_WRITE(REG_PARAM_DATA2, x1);
     DRVGA_REG_WRITE(REG_PARAM_DATA3, y1);
 	DRVGA_REG_WRITE(REG_PARAM_DATA4, color);
 
 	DRVGA_REG_WRITE(REG_COMMAND, CMD_FILL_RECT);
-    drvga_wait_busy();
 }
 
 void drvga_solid_line(UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color)
 {
+    drvga_wait_busy();
     DRVGA_REG_WRITE(REG_PARAM_DATA0, x0);
     DRVGA_REG_WRITE(REG_PARAM_DATA1, x1);
     DRVGA_REG_WRITE(REG_PARAM_DATA2, y0);
@@ -99,7 +100,6 @@ void drvga_solid_line(UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color)
 	DRVGA_REG_WRITE(REG_PARAM_DATA4, color);
 
 	DRVGA_REG_WRITE(REG_COMMAND, CMD_DRAW_LINE);
-    drvga_wait_busy();
 }
 
 void drvga_set_memory_ptr(ULONG addr)
