@@ -4,7 +4,7 @@
  * This file implements for FVDI API functions c_read_pixel() and c_write_pixel().
  */
 
-#define FVDI_DEBUG 1
+//#define FVDI_DEBUG 1
 #include "gfxvga.h"
 
 #include "driver.h"

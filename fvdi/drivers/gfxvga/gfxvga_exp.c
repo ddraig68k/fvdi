@@ -4,7 +4,7 @@
 #include "driver.h"
 #include "../bitplane/bitplane.h"
 
-#define FVDI_DEBUG 1
+//#define FVDI_DEBUG 1
 #include "gfxvga.h"
 
 #define PIXEL		short

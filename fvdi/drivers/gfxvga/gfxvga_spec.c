@@ -203,7 +203,7 @@ long CDECL initialize(Virtual *vwk)
     access->funcs.puts(str);
 
 	g_gfxfpga_base = 0x00F7F500;
-	drvga_write_control_reg(DISPMODE_BITMAPHIRES);
+	gfx_write_control_reg(DISPMODE_BITMAPHIRES);
 
     device.byte_width = wk->screen.wrap;
     device.address = wk->screen.mfdb.address;

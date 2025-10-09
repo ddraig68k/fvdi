@@ -28,10 +28,10 @@ extern kprintf_func_t my_kprintf;
 
 extern ULONG g_gfxfpga_base;
 
-#define DRVGA_TEXTBUF_SIZE  2400
+#define GFX_TEXTBUF_SIZE  2400
 
-#define DRVGA_REG_WRITE(x, y)  (*((volatile UWORD *) (g_gfxfpga_base + (x))) = (y))
-#define DRVGA_REG_READ(x)      (*((volatile UWORD *) (g_gfxfpga_base + (x))))
+#define GFX_REG_WRITE(x, y)  (*((volatile UWORD *) (g_gfxfpga_base + (x))) = (y))
+#define GFX_REG_READ(x)      (*((volatile UWORD *) (g_gfxfpga_base + (x))))
 
 #define	REG_STATUS              0x00    // Status register
 #define REG_CONTROL             0x02    // Display control register
@@ -54,13 +54,19 @@ extern ULONG g_gfxfpga_base;
 #define REG_BITMAP_PTR_L		0x30    // Bitmap data address location (L) 
 #define REG_BITMAP_PTR_H		0x32    // Bitmap data address location (H)
 
-#define CMD_NONE                0x00
-#define CMD_FILL_RECT           0x01
-#define CMD_DRAW_LINE           0x02
-#define CMD_CLEAR_SCREEN        0x03
+#define CMD_NONE                0x0000   
+#define CMD_FILL_RECT           0x0001
+#define CMD_DRAW_LINE           0x0002
 
-#define CMD_SET_CHARACTER       0x10
-#define CMD_MEMORY_ACCESS       0x20
+#define CMD_SET_CHARACTER       0x0010
+#define CMD_MEMORY_ACCESS       0x0020
+
+#define DRAW_MODE_SOLID        0x0
+#define DRAW_MODE_XOR          (0x1 << 7)
+#define DRAW_MODE_TRANS        (0x2 << 7)
+#define DRAW_MODE_REVTRANS     (0x3 << 7)
+
+#define DRAW_PATTERN(p)         ((p & 0x3f) << 10)
 
 // Status register masks
 #define STATUS_READY            0x0001
@@ -125,20 +131,17 @@ static inline int is_screen(struct wk_ *wk, MFDB *mfdb)
     return (mfdb == NULL || mfdb->address == NULL || mfdb->address == wk->screen.mfdb.address) ? 1 : 0;
 }
 
-
-
-void drvga_write_control_reg(UWORD data);
-void drvga_wait_busy(void);
-void drvga_wait_vblank(void);
-void drvga_wait_vblank_clear(void);
-void drvga_clear_text(void);
-void drvga_write_text(UWORD posx, UWORD posy, char *text);
-void drvga_write_char(UWORD posx, UWORD posy, char text);
-void drvga_clear_screen(UWORD color);
-void drvga_solid_box(UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color);
-void drvga_solid_line(UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color);
-void drvga_set_memory_ptr(ULONG addr);
-void drvga_write_memory_block(UWORD *data, ULONG datalen);
+void gfx_write_control_reg(UWORD data);
+void gfx_wait_busy(void);
+void gfx_wait_vblank(void);
+void gfx_wait_vblank_clear(void);
+void gfx_clear_text(void);
+void gfx_write_text(UWORD posx, UWORD posy, char *text);
+void gfx_write_char(UWORD posx, UWORD posy, char text);
+void gfx_draw_box(UWORD mode, UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color1, UWORD color2);
+void gfx_draw_line(UWORD mode, UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color1, UWORD color2, UWORD pattern);
+void gfx_set_memory_ptr(ULONG addr);
+void gfx_write_memory_block(UWORD *data, ULONG datalen);
 
 
 #ifdef __GNUC__

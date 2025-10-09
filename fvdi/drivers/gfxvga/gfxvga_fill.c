@@ -17,7 +17,6 @@
 #define PIXEL_SIZE	sizeof(PIXEL)
 #define PIXEL_32    long
 
-
 static int is_solid_pattern(const UWORD *pattern)
 {
     for (int i = 0; i < 16; i++) {
@@ -220,7 +219,6 @@ long CDECL c_fill_area(Virtual *vwk, long x, long y, long w, long h,
     if (w <= 0 || h <= 0)
         return 1;
 
-    (void) interior_style;
     table = 0;
     if ((long) vwk & 1) {
         if ((y & 0xffff) != 0)
@@ -236,39 +234,36 @@ long CDECL c_fill_area(Virtual *vwk, long x, long y, long w, long h,
 
     wk = vwk->real_address;
 
-    pos = (short)y * (long)wk->screen.wrap + x * 2;
-    addr = wk->screen.mfdb.address;
-    line_add = (wk->screen.wrap - w * 2) >> 1;
-
     int16_t fill_type = (int16_t)((interior_style >> 16) & 0xFFFF);
     int16_t pattern_index = (int16_t)(interior_style & 0xFFFF);
     int solid_pattern = (fill_type == 0) || (fill_type == 1) || ((fill_type == 2) && (pattern_index == 8)) 
         || ((fill_type == 2) && (pattern_index == 4)) || is_solid_pattern(pattern);
 
-    addr += pos / PIXEL_SIZE;
+    UWORD draw_mode = 0;
+    if (fill_type > 1)
+        draw_mode = DRAW_PATTERN(pattern_index + 2);
+
+    DPRINTF(("c_fill_area Interior style=%08lX fill_type=%d pattern_index=%d\n", interior_style, fill_type, pattern_index));
+    
     switch (mode) {
     case 1:             /* Replace */
         DPRINTF(("c_fill_area: mode=replace x=%ld,y=%ld,w=%ld,h=%ld color=%04lX fill_type=%d, pattern_index=%d\n\r", x, y, w, h, foreground, fill_type, pattern_index));
-        if (solid_pattern)
-        {
-            drvga_solid_box(x, y, x + w -1, y + h - 1,  foreground);
-        }
-        else
-            fill_replace(addr, addr_fast, line_add, pattern, x, y, w, h, foreground, background);
         break;
     case 2:             /* Transparent */
         DPRINTF(("c_fill_area: mode=transparent x=%ld,y=%ld,w=%ld,h=%ld color=%04lX fill_type=%d, pattern_index=%d\n\r", x, y, w, h, foreground, fill_type, pattern_index));
-        fill_transparent(addr, addr_fast, line_add, pattern, x, y, w, h, foreground, background);
+        draw_mode |= DRAW_MODE_TRANS;
         break;
     case 3:             /* XOR */
         DPRINTF(("c_fill_area: mode=xor x=%ld,y=%ld,w=%ld,h=%ld color=%04lX fill_type=%d, pattern_index=%d\n\r", x, y, w, h, foreground, fill_type, pattern_index));
-        fill_xor(addr, addr_fast, line_add, pattern, x, y, w, h, foreground, background);
+        draw_mode |= DRAW_MODE_XOR;
         break;
     case 4:             /* Reverse transparent */
         DPRINTF(("c_fill_area: mode=revtrans x=%ld,y=%ld,w=%ld,h=%ld color=%04lX fill_type=%d, pattern_index=%d\n\r", x, y, w, h, foreground, fill_type, pattern_index));
-        fill_revtransp(addr, addr_fast, line_add, pattern, x, y, w, h, foreground, background);
+        draw_mode |= DRAW_MODE_REVTRANS;
         break;
     }
+    
+    gfx_draw_box(draw_mode, x, y, x + w -1, y + h - 1, foreground, background);
 
     return 1;       /* Return as completed */
 }

@@ -5,7 +5,7 @@
  *
  */
 
-#define FVDI_DEBUG 1
+//#define FVDI_DEBUG 1
 #include "gfxvga.h"
 
 #include "fvdi.h"
@@ -307,7 +307,7 @@ long CDECL c_line_draw(Virtual *vwk, long x1, long y1, long x2, long y2,
             if ((x1 == y2) || (x1 == y2))
             {
                 // Use hardware acceleration
-                drvga_solid_line(x1, y1, x2, y2, foreground);
+                gfx_draw_line(0, x1, y1, x2, y2, foreground, background, 0);
             } 
             else
                 line_replace(addr, addr_fast, count, d, incrE, incrNE, one_step, both_step, foreground, background);

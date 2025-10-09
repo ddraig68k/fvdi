@@ -2,118 +2,113 @@
 
 ULONG g_gfxfpga_base = 0x00F7F500;
 
-void drvga_write_control_reg(UWORD data)
+void gfx_write_control_reg(UWORD data)
 {
-    DRVGA_REG_WRITE(REG_CONTROL, data);
+    GFX_REG_WRITE(REG_CONTROL, data);
 }
 
-void drvga_wait_busy()
+void gfx_wait_busy()
 {
 	volatile UWORD status;
 	do 
     {
-        status = DRVGA_REG_READ(REG_STATUS);
+        status = GFX_REG_READ(REG_STATUS);
     }
     while ((status & STATUS_READY) == 0);
 }
 
-void drvga_wait_vblank()
+void gfx_wait_vblank()
 {
 	volatile UWORD status;
 	do 
     {
-        status = DRVGA_REG_READ(REG_STATUS);
+        status = GFX_REG_READ(REG_STATUS);
     }
     while ((status & 0x8000) == 0);
 }
 
-void drvga_wait_vblank_clear()
+void gfx_wait_vblank_clear()
 {
-	UWORD status = DRVGA_REG_READ(REG_STATUS);
+	UWORD status = GFX_REG_READ(REG_STATUS);
     while ((status & 0x8000))
     {
-	    status = DRVGA_REG_READ(REG_STATUS);
+	    status = GFX_REG_READ(REG_STATUS);
     }
 }
 
-
-void drvga_clear_text()
+void gfx_clear_text()
 {
-    int count = DRVGA_TEXTBUF_SIZE;
-    DRVGA_REG_WRITE(REG_PARAM_DATA0, 0);  // Set the text buffer address
+    int count = GFX_TEXTBUF_SIZE;
+    GFX_REG_WRITE(REG_PARAM_DATA0, 0);  // Set the text buffer address
 
     while (count--)
     {
-        DRVGA_REG_WRITE(REG_PARAM_DATA1, ' ');
-        DRVGA_REG_WRITE(REG_COMMAND, CMD_SET_CHARACTER);
+        GFX_REG_WRITE(REG_PARAM_DATA1, ' ');
+        GFX_REG_WRITE(REG_COMMAND, CMD_SET_CHARACTER);
     }
 }
 
-void drvga_write_text(UWORD posx, UWORD posy, char *text)
+void gfx_write_text(UWORD posx, UWORD posy, char *text)
 {
     UWORD pos = (posy * 80) + posx;
 
-    DRVGA_REG_WRITE(REG_PARAM_DATA0, pos);
+    GFX_REG_WRITE(REG_PARAM_DATA0, pos);
     while (*text != 0)
     {
-        DRVGA_REG_WRITE(REG_PARAM_DATA1, *text++);
-        DRVGA_REG_WRITE(REG_COMMAND, CMD_SET_CHARACTER);
+        GFX_REG_WRITE(REG_PARAM_DATA1, *text++);
+        GFX_REG_WRITE(REG_COMMAND, CMD_SET_CHARACTER);
     }
 }
 
-void drvga_write_char(UWORD posx, UWORD posy, char text)
+void gfx_write_char(UWORD posx, UWORD posy, char text)
 {
     UWORD pos = (posy * 80) + posx;
 
-    DRVGA_REG_WRITE(REG_PARAM_DATA0, pos);
-    DRVGA_REG_WRITE(REG_PARAM_DATA1, text);
-    DRVGA_REG_WRITE(REG_COMMAND, CMD_SET_CHARACTER);
+    GFX_REG_WRITE(REG_PARAM_DATA0, pos);
+    GFX_REG_WRITE(REG_PARAM_DATA1, text);
+    GFX_REG_WRITE(REG_COMMAND, CMD_SET_CHARACTER);
 }
 
-void drvga_clear_screen(UWORD color)
+void gfx_draw_box(UWORD mode, UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color1, UWORD color2)
 {
-    // Set the screen fill color
-    drvga_wait_busy();
-	DRVGA_REG_WRITE(REG_PARAM_DATA0, color);
-	DRVGA_REG_WRITE(REG_COMMAND, CMD_CLEAR_SCREEN);
+    gfx_wait_busy();
+    GFX_REG_WRITE(REG_PARAM_DATA0, x0);
+    GFX_REG_WRITE(REG_PARAM_DATA1, y0);
+    GFX_REG_WRITE(REG_PARAM_DATA2, x1);
+    GFX_REG_WRITE(REG_PARAM_DATA3, y1);
+	GFX_REG_WRITE(REG_PARAM_DATA4, color1);
+	GFX_REG_WRITE(REG_PARAM_DATA5, color2);
+
+	GFX_REG_WRITE(REG_COMMAND, mode | CMD_FILL_RECT);
 }
 
-void drvga_solid_box(UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color)
+void gfx_draw_line(UWORD mode, UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color1, UWORD color2, UWORD pattern)
 {
-    drvga_wait_busy();
-    DRVGA_REG_WRITE(REG_PARAM_DATA0, x0);
-    DRVGA_REG_WRITE(REG_PARAM_DATA1, y0);
-    DRVGA_REG_WRITE(REG_PARAM_DATA2, x1);
-    DRVGA_REG_WRITE(REG_PARAM_DATA3, y1);
-	DRVGA_REG_WRITE(REG_PARAM_DATA4, color);
+    gfx_wait_busy();
+    GFX_REG_WRITE(REG_PARAM_DATA0, x0);
+    GFX_REG_WRITE(REG_PARAM_DATA1, x1);
+    GFX_REG_WRITE(REG_PARAM_DATA2, y0);
+    GFX_REG_WRITE(REG_PARAM_DATA3, y1);
+	GFX_REG_WRITE(REG_PARAM_DATA4, color1);
+	GFX_REG_WRITE(REG_PARAM_DATA5, color2);
+	GFX_REG_WRITE(REG_PARAM_DATA6, pattern);
 
-	DRVGA_REG_WRITE(REG_COMMAND, CMD_FILL_RECT);
+
+	GFX_REG_WRITE(REG_COMMAND, mode | CMD_DRAW_LINE);
 }
 
-void drvga_solid_line(UWORD x0, UWORD y0, UWORD x1, UWORD y1, UWORD color)
+void gfx_set_memory_ptr(ULONG addr)
 {
-    drvga_wait_busy();
-    DRVGA_REG_WRITE(REG_PARAM_DATA0, x0);
-    DRVGA_REG_WRITE(REG_PARAM_DATA1, x1);
-    DRVGA_REG_WRITE(REG_PARAM_DATA2, y0);
-    DRVGA_REG_WRITE(REG_PARAM_DATA3, y1);
-	DRVGA_REG_WRITE(REG_PARAM_DATA4, color);
-
-	DRVGA_REG_WRITE(REG_COMMAND, CMD_DRAW_LINE);
+    GFX_REG_WRITE(REG_PARAM_DATA0, (UWORD)addr);
+    GFX_REG_WRITE(REG_PARAM_DATA1, (UWORD)(addr >> 16));
+	GFX_REG_WRITE(REG_COMMAND, CMD_MEMORY_ACCESS);
 }
 
-void drvga_set_memory_ptr(ULONG addr)
-{
-    DRVGA_REG_WRITE(REG_PARAM_DATA0, (UWORD)addr);
-    DRVGA_REG_WRITE(REG_PARAM_DATA1, (UWORD)(addr >> 16));
-	DRVGA_REG_WRITE(REG_COMMAND, CMD_MEMORY_ACCESS);
-}
-
-void drvga_write_memory_block(UWORD *data, ULONG datalen)
+void gfx_write_memory_block(UWORD *data, ULONG datalen)
 {
     while (datalen)
     {
-        DRVGA_REG_WRITE(REG_DATA, *data++);
+        GFX_REG_WRITE(REG_DATA, *data++);
         datalen--;
     }
 }
