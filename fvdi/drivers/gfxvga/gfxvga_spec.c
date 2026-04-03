@@ -64,11 +64,8 @@ short accel_c = A_SET_PAL | A_GET_COL | A_SET_PIX | A_GET_PIX | A_BLIT | A_FILL 
 
 const Mode *graphics_mode = &mode[0];
 
-uint32_t gfxvga_mem_base = 0xA00000;
-
 short fix_shape = 0;
 short no_restore = 0;
-
 
 static Option const options[] = {
     {"debug",      { &debug }, 2 },              /* debug, turn on debugging aids */
@@ -190,7 +187,7 @@ long CDECL initialize(Virtual *vwk)
     }
     c_initialize_palette(vwk, 0, wk->screen.palette.size, default_vdi_colors, wk->screen.palette.colours);
 
-    // FIXME: The EmuTOS XBIOS needs to be made Xosera-aware and then made to return the correct Xosera-specific address here.
+    // FIXME: The EmuTOS XBIOS needs to be made gfxvga aware and then made to return the correct address here.
     wk->screen.mfdb.address = Physbase();
 
     access->funcs.puts("GfxVGA: Initializing...\r\n");
@@ -202,8 +199,7 @@ long CDECL initialize(Virtual *vwk)
     access->funcs.cat(".\r\n", str);
     access->funcs.puts(str);
 
-	g_gfxfpga_base = 0x00F7F500;
-	gfx_write_control_reg(DISPMODE_BITMAPHIRES);
+	vdp_set_control(DISPMODE_BITMAPHIRES);
 
     device.byte_width = wk->screen.wrap;
     device.address = wk->screen.mfdb.address;
