@@ -129,6 +129,9 @@ extern UWORD *g_vdp_memory_base;
 #define DRAW_MODE_TRANS        0x2
 #define DRAW_MODE_REVTRANS     0x3
 
+/* Pattern select: set bit 15 to align the pattern origin to the draw rectangle. */
+#define VDP_PATTERN_RELATIVE   0x8000
+
 // Status register masks
 #define STATUS_READY            0x0001
 #define STATUS_ERROR            0x0002
@@ -256,6 +259,8 @@ void vdp_set_drawmode(UWORD mode);
 void vdp_set_draw_color(UWORD col);
 void vdp_set_back_color(UWORD col);
 void vdp_set_pattern(UWORD pat);
+void vdp_upload_pattern8(UWORD slot, const UWORD rows[8]);
+void vdp_upload_pattern16(UWORD slot, const UWORD rows[16]);
 void vdp_draw_fill_rect(UWORD x0, UWORD y0, UWORD x1, UWORD y1);
 void vdp_draw_line(UWORD x0, UWORD y0, UWORD x1, UWORD y1);
 void vdp_draw_hline(UWORD x, UWORD y);

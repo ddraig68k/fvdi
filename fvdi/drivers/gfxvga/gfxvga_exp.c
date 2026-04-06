@@ -9,6 +9,7 @@
 
 #define PIXEL		short
 #define PIXEL_SIZE	sizeof(PIXEL)
+#define CUSTOM_PATTERN_SLOT 39
 
 /*
  * Make it as easy as possible for the C compiler.
@@ -133,6 +134,70 @@ static void revtransp(short *src_addr, int src_line_add, PIXEL *dst_addr, PIXEL 
     }
 }
 
+static UWORD extract_mono_row_bits(const short *row_base, int bit_offset)
+{
+    UWORD first = (UWORD)row_base[0];
+
+    if (bit_offset == 0)
+        return first;
+
+    return (UWORD)((first << bit_offset) | ((UWORD)row_base[1] >> (16 - bit_offset)));
+}
+
+static int expand_via_pattern(Virtual *vwk, MFDB *src, long src_x, long src_y,
+                              long dst_x, long dst_y, long w, long h,
+                              long operation, UWORD foreground, UWORD background)
+{
+    const short *src_base;
+    int src_row_words;
+    int bit_offset;
+    UWORD mode;
+
+    if (!src || !src->address || src->bitplanes != 1)
+        return 0;
+    if ((w != 8 || h != 8) && (w != 16 || h != 16))
+        return 0;
+    if (operation != 1 && operation != 2)
+        return 0;
+
+    src_row_words = src->wdwidth;
+    src_base = (const short *)src->address + src_y * src_row_words + (src_x >> 4);
+    bit_offset = (int)(src_x & 0x000f);
+
+    mode = (operation == 1) ? DRAW_MODE_SOLID : DRAW_MODE_TRANS;
+
+    vdp_set_drawmode(mode);
+    vdp_set_draw_color(foreground);
+    vdp_set_back_color(background);
+
+    if (w == 8 && h == 8) {
+        UWORD rows[8];
+        int row;
+
+        for (row = 0; row < 8; row++) {
+            UWORD bits = extract_mono_row_bits(src_base + row * src_row_words, bit_offset);
+            rows[row] = bits & 0xFF00;
+        }
+
+        vdp_upload_pattern8(CUSTOM_PATTERN_SLOT, rows);
+    } else {
+        UWORD rows[16];
+        int row;
+
+        for (row = 0; row < 16; row++)
+            rows[row] = extract_mono_row_bits(src_base + row * src_row_words, bit_offset);
+
+        vdp_upload_pattern16(CUSTOM_PATTERN_SLOT, rows);
+    }
+
+    vdp_set_pattern(VDP_PATTERN_RELATIVE | CUSTOM_PATTERN_SLOT);
+    vdp_draw_fill_rect((UWORD)dst_x, (UWORD)dst_y,
+                       (UWORD)(dst_x + w - 1), (UWORD)(dst_y + h - 1));
+
+    (void)vwk;
+    return 1;
+}
+
 long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *dst, long dst_x, long dst_y, long w, long h, long operation, long colour)
 {
     Workstation *wk;
@@ -173,6 +238,13 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
 
     DPRINTF(("c_expand_area: src MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r", (ULONG)src->address, src->width, src->height, src->wdwidth, src->standard, src->bitplanes));
     DPRINTF(("c_expand_area: dst MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r", (ULONG)dst->address, dst->width, dst->height, dst->wdwidth, dst->standard, dst->bitplanes));
+
+    if (to_screen && expand_via_pattern(vwk, src, src_x, src_y, dst_x, dst_y, w, h,
+                                        operation, (UWORD)foreground, (UWORD)background)) {
+        DPRINTF(("c_expand_area: mode=pattern_fast srx=%ld,sry=%ld,dx=%ld,dy=%ld,w=%ld,h=%ld,op=%ld\n\r",
+                 src_x, src_y, dst_x, dst_y, w, h, operation));
+        return 1;
+    }
 
     switch (operation) {
     case 1:             /* Replace */

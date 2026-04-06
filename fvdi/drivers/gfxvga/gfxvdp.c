@@ -239,6 +239,24 @@ void vdp_set_pattern(UWORD pat)
     VDP_REG_WRITE(REG_DRAW_PATTERN, pat);
 }
 
+void vdp_upload_pattern8(UWORD slot, const UWORD rows[8])
+{
+    size_t i;
+
+    VDP_REG_WRITE(REG_PATTERN_ADDR, slot * 16);
+    for (i = 0; i < 8; i++)
+        VDP_REG_WRITE(REG_PATTERN_DATA, rows[i]);
+}
+
+void vdp_upload_pattern16(UWORD slot, const UWORD rows[16])
+{
+    size_t i;
+
+    VDP_REG_WRITE(REG_PATTERN_ADDR, slot * 16);
+    for (i = 0; i < 16; i++)
+        VDP_REG_WRITE(REG_PATTERN_DATA, rows[i]);
+}
+
 void vdp_draw_fill_rect(UWORD x0, UWORD y0, UWORD x1, UWORD y1)
 {
     VDP_REG_WRITE(REG_PARAM_DATA0, x0);
