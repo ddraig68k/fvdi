@@ -1,14 +1,17 @@
 #ifndef _DDRAIGVDP_H_
 #define _DDRAIGVDP_H_
 
-#include <stdbool.h>
 #include <stddef.h>
-#include <stdint.h>
 #include "fvdi.h"
 
 typedef unsigned char UBYTE;
 typedef unsigned short UWORD;
 typedef unsigned long ULONG;
+
+typedef signed char SBYTE;
+typedef signed short SWORD;
+typedef signed long SLONG;
+
 typedef int BOOL;
 typedef void VOID;
 typedef ULONG IPTR;
@@ -16,13 +19,13 @@ typedef ULONG IPTR;
 #define TRUE 1
 #define FALSE 0
 
-extern uint32_t g_vdp_reg_base;
-extern uint16_t *g_vdp_memory_base;
+extern ULONG g_vdp_reg_base;
+extern UWORD *g_vdp_memory_base;
 
 #define VDP_TEXTBUF_SIZE  4800  /* Max of 80x60*/
 
-#define VDP_REG_WRITE(x, y)     (*((volatile uint16_t *) (g_vdp_reg_base + (x))) = (y))
-#define VDP_REG_READ(x)         (*((volatile uint16_t *) (g_vdp_reg_base + (x))))
+#define VDP_REG_WRITE(x, y)     (*((volatile UWORD *) (g_vdp_reg_base + (x))) = (y))
+#define VDP_REG_READ(x)         (*((volatile UWORD *) (g_vdp_reg_base + (x))))
 
 #define	REG_STATUS              0x00    // Status register
 #define REG_CONTROL             0x02    // Display control register
@@ -173,46 +176,46 @@ extern uint16_t *g_vdp_memory_base;
 
 typedef struct tile_layer 
 {
-    uint8_t id;
-    uint8_t enabled;
-    uint16_t map_width;
-    uint16_t map_height;
-    uint32_t map_addr;
-    uint32_t data_addr;
+    UBYTE id;
+    UBYTE enabled;
+    UWORD map_width;
+    UWORD map_height;
+    ULONG map_addr;
+    ULONG data_addr;
 } tile_layer_t;
 
-void vdp_init(uint32_t regaddr, uint32_t memaddr);
+void vdp_init(ULONG regaddr, ULONG memaddr);
 
 // Control registers
-uint16_t vdp_get_status(void);
-void vdp_set_control(uint16_t mode);
-uint16_t vdp_get_control(void);
-void vdp_set_int_control(uint16_t intr);
-uint16_t vdp_get_int_control(void);
-void vdp_set_mempage(uint16_t page);
-uint16_t vdp_get_mempage(void);
+UWORD vdp_get_status(void);
+void vdp_set_control(UWORD mode);
+UWORD vdp_get_control(void);
+void vdp_set_int_control(UWORD intr);
+UWORD vdp_get_int_control(void);
+void vdp_set_mempage(UWORD page);
+UWORD vdp_get_mempage(void);
 
 void vdp_wait_busy(void);
 void vdp_wait_vblank(void);
 void vdp_wait_vblank_clear(void);
 
-static inline uint32_t vdp_get_regbase_addr(void)
+static inline ULONG vdp_get_regbase_addr(void)
 {
     return g_vdp_reg_base;
 }
 
-static inline uint16_t *vdp_get_memory_base(void)
+static inline UWORD *vdp_get_memory_base(void)
 {
     return g_vdp_memory_base;
 }
 
 // Framebuffer pointer
-void vdp_set_framebuffer_addr(uint32_t addr);
-uint32_t vdp_get_framebuffer_addr(void);
+void vdp_set_framebuffer_addr(ULONG addr);
+ULONG vdp_get_framebuffer_addr(void);
 
 // Line scroll pointer
-void vdp_set_linescroll_addr(uint32_t addr);
-uint32_t vdp_get_linescroll_addr(void);
+void vdp_set_linescroll_addr(ULONG addr);
+ULONG vdp_get_linescroll_addr(void);
 
 // Text attributes
 #define VDP_TEXT_FG_BLACK           0x0000
@@ -232,113 +235,113 @@ uint32_t vdp_get_linescroll_addr(void);
 #define VDP_TEXT_FG_YELLOW          0x0E00
 #define VDP_TEXT_FG_WHITE           0x0F00
 
-static inline uint16_t vdp_make_text_cell(uint8_t ch, uint16_t fg, uint16_t bg)
+static inline UWORD vdp_make_text_cell(UBYTE ch, UWORD fg, UWORD bg)
 {
-    return (uint16_t)(ch | fg | bg);
+    return (UWORD)(ch | fg | bg);
 }
 
 // Text commands
 void vdp_clear_text(void);
-void vdp_write_text(uint16_t posx, uint16_t posy, const char *text);
-void vdp_write_char(uint16_t posx, uint16_t posy, uint16_t text);
+void vdp_write_text(UWORD posx, UWORD posy, const char *text);
+void vdp_write_char(UWORD posx, UWORD posy, UWORD text);
 void vdp_cursor_pos(int x, int y);
 void vdp_cursor_size(int top, int bottom);
 
 // Draw command base address
-void vdp_set_drawbase_addr(uint32_t addr);
-uint32_t vdp_get_drawbase_addr(void);
+void vdp_set_drawbase_addr(ULONG addr);
+ULONG vdp_get_drawbase_addr(void);
 
 // Drawing commands
-void vdp_set_drawmode(uint16_t mode);
-void vdp_set_draw_color(uint16_t col);
-void vdp_set_back_color(uint16_t col);
-void vdp_set_pattern(uint16_t pat);
-void vdp_draw_fill_rect(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
-void vdp_draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
-void vdp_draw_hline(uint16_t x, uint16_t y);
-void vdp_draw_vline(uint16_t x, uint16_t y);
-void vdp_draw_fill_tri(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,  uint16_t x2, uint16_t y2);
+void vdp_set_drawmode(UWORD mode);
+void vdp_set_draw_color(UWORD col);
+void vdp_set_back_color(UWORD col);
+void vdp_set_pattern(UWORD pat);
+void vdp_draw_fill_rect(UWORD x0, UWORD y0, UWORD x1, UWORD y1);
+void vdp_draw_line(UWORD x0, UWORD y0, UWORD x1, UWORD y1);
+void vdp_draw_hline(UWORD x, UWORD y);
+void vdp_draw_vline(UWORD x, UWORD y);
+void vdp_draw_fill_tri(UWORD x0, UWORD y0, UWORD x1, UWORD y1,  UWORD x2, UWORD y2);
 
-void vdp_set_bitmap_palette(uint16_t bank);
-void vdp_set_text_palette(uint16_t bank);
-void vdp_set_tile_palette(uint16_t layer, uint16_t bank);
-void vdp_set_sprite_palette(uint16_t bank);
+void vdp_set_bitmap_palette(UWORD bank);
+void vdp_set_text_palette(UWORD bank);
+void vdp_set_tile_palette(UWORD layer, UWORD bank);
+void vdp_set_sprite_palette(UWORD bank);
 
 // Tilemap functions
-void vdp_tilemap1_map_addr(uint32_t addr);
-void vdp_tilemap1_data_addr(uint32_t addr);
+void vdp_tilemap1_map_addr(ULONG addr);
+void vdp_tilemap1_data_addr(ULONG addr);
 void vdp_tilemap1_enable(void);
 void vdp_tilemap1_disable(void);
-void vdp_tilemap1_scroll_x(uint16_t x);
-void vdp_tilemap1_scroll_y(uint16_t y);
-void vdp_tilemap1_linescr_mode(uint16_t mode);
+void vdp_tilemap1_scroll_x(UWORD x);
+void vdp_tilemap1_scroll_y(UWORD y);
+void vdp_tilemap1_linescr_mode(UWORD mode);
 
-void vdp_tilemap2_map_addr(uint32_t addr);
-void vdp_tilemap2_data_addr(uint32_t addr);
+void vdp_tilemap2_map_addr(ULONG addr);
+void vdp_tilemap2_data_addr(ULONG addr);
 void vdp_tilemap2_enable(void);
 void vdp_tilemap2_disable(void);
-void vdp_tilemap2_scroll_x(uint16_t x);
-void vdp_tilemap2_scroll_y(uint16_t y);
-void vdp_tilemap2_linescr_mode(uint16_t mode);
+void vdp_tilemap2_scroll_x(UWORD x);
+void vdp_tilemap2_scroll_y(UWORD y);
+void vdp_tilemap2_linescr_mode(UWORD mode);
 
-void vdp_tilemap3_map_addr(uint32_t addr);
-void vdp_tilemap3_data_addr(uint32_t addr);
+void vdp_tilemap3_map_addr(ULONG addr);
+void vdp_tilemap3_data_addr(ULONG addr);
 void vdp_tilemap3_enable(void);
 void vdp_tilemap3_disable(void);
-void vdp_tilemap3_scroll_x(uint16_t x);
-void vdp_tilemap3_scroll_y(uint16_t y);
-void vdp_tilemap3_linescr_mode(uint16_t mode);
+void vdp_tilemap3_scroll_x(UWORD x);
+void vdp_tilemap3_scroll_y(UWORD y);
+void vdp_tilemap3_linescr_mode(UWORD mode);
 
-void vdp_tilemap4_map_addr(uint32_t addr);
-void vdp_tilemap4_data_addr(uint32_t addr);
+void vdp_tilemap4_map_addr(ULONG addr);
+void vdp_tilemap4_data_addr(ULONG addr);
 void vdp_tilemap4_enable(void);
 void vdp_tilemap4_disable(void);
-void vdp_tilemap4_scroll_x(uint16_t x);
-void vdp_tilemap4_scroll_y(uint16_t y);
-void vdp_tilemap4_linescr_mode(uint16_t mode);
+void vdp_tilemap4_scroll_x(UWORD x);
+void vdp_tilemap4_scroll_y(UWORD y);
+void vdp_tilemap4_linescr_mode(UWORD mode);
 
-void vdp_sprite_data_addr(uint32_t addr);
+void vdp_sprite_data_addr(ULONG addr);
 
-void vdp_vram_write(uint32_t addr, const uint16_t *src, size_t size);
+void vdp_vram_write(ULONG addr, const UWORD *src, size_t size);
 void vdp_init_tile_layer(tile_layer_t *layer);
 
 void vdp_disable_all_sprites(void);
 
-static inline void vdp_set_sprite_index(uint8_t index)
+static inline void vdp_set_sprite_index(UBYTE index)
 {
     VDP_REG_WRITE(REG_SPRITE_IDX, index);    
 }
 
-static inline void vdp_write_sprite_x(int16_t x)
+static inline void vdp_write_sprite_x(SWORD x)
 {
     VDP_REG_WRITE(REG_SPRITE_POS_X, x);
 }
 
-static inline void vdp_write_sprite_y(int16_t y)
+static inline void vdp_write_sprite_y(SWORD y)
 {
     VDP_REG_WRITE(REG_SPRITE_POS_Y, y);
 }
 
-static inline void vdp_write_sprite_tile(uint16_t tile)
+static inline void vdp_write_sprite_tile(UWORD tile)
 {
     VDP_REG_WRITE(REG_SPRITE_TILE, tile);
 }
 
-static inline void vdp_write_sprite_attr(uint8_t palette,
-                           uint8_t priority,
-                           uint8_t flip_x,
-                           uint8_t flip_y)
+static inline void vdp_write_sprite_attr(UBYTE palette,
+                           UBYTE priority,
+                           UBYTE flip_x,
+                           UBYTE flip_y)
 {
-    uint16_t attrib = 0x8000; // enable
+    UWORD attrib = 0x8000; // enable
     attrib |= (palette & 0x0F) | (flip_x << 4) | (flip_y << 5);
-    attrib |= (uint16_t)(priority & 0xF) << 6; 
+    attrib |= (UWORD)(priority & 0xF) << 6; 
     VDP_REG_WRITE(REG_SPRITE_ATTRIB, attrib);
 }
 
-void vdp_fill_memory(uint32_t addr, uint16_t length, uint16_t value);
-void vdp_copy_memory(uint32_t src, uint32_t dest, uint16_t length);
-void vdp_copy_2d(uint32_t src_base_word, uint32_t dst_base_word,
-    uint16_t src_x, uint16_t src_y, uint16_t dst_x, uint16_t dst_y,
-    uint16_t width_pixels, uint16_t height_lines, uint16_t screen_width_pixels);
+void vdp_fill_memory(ULONG addr, UWORD length, UWORD value);
+void vdp_copy_memory(ULONG src, ULONG dest, UWORD length);
+void vdp_copy_2d(ULONG src_base_word, ULONG dst_base_word,
+    UWORD src_x, UWORD src_y, UWORD dst_x, UWORD dst_y,
+    UWORD width_pixels, UWORD height_lines, UWORD screen_width_pixels);
 
 #endif

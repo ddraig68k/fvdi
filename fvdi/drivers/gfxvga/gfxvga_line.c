@@ -7,6 +7,7 @@
 
 //#define FVDI_DEBUG 1
 #include "gfxvga.h"
+#include "gfxvdp.h"
 
 #include "fvdi.h"
 #include "driver.h"
@@ -37,14 +38,22 @@ long CDECL c_line_draw(Virtual *vwk, long x1, long y1, long x2, long y2,
         switch (mode) {
         case 1:             /* Replace */
             DPRINTF(("c_line_draw: mode=replace x1=%ld,y1=%ld,x2=%ld,y2=%ld color=%04X\n\r", x1, y1, x2, y2, (int)foreground));
-            gfx_draw_line(0, x1, y1, x2, y2, foreground, background, 0xFFFF);
+            vdp_set_drawmode(DRAW_MODE_SOLID);
+            vdp_set_draw_color(foreground);
+            vdp_set_back_color(background);
+            vdp_set_pattern(0xFFFF);
+            vdp_draw_line(x1, y1, x2, y2);
         case 2:             /* Transparent */
             DPRINTF(("c_line_draw: mode=transparent x1=%ld,y1=%ld,x2=%ld,y2=%ld color=%04X\n\r", x1, y1, x2, y2, (int)foreground));
             /* Transparent line? Don't draw */
             break;
         case 3:             /* XOR */
             DPRINTF(("c_line_draw: mode=xor x1=%ld,y1=%ld,x2=%ld,y2=%ld color=%04X\n\r", x1, y1, x2, y2, (int)foreground));
-            gfx_draw_line(DRAW_MODE_XOR, x1, y1, x2, y2, foreground, background, 0xFFFF);
+            vdp_set_drawmode(DRAW_MODE_XOR);
+            vdp_set_draw_color(foreground);
+            vdp_set_back_color(background);
+            vdp_set_pattern(0xFFFF);
+            vdp_draw_line(x1, y1, x2, y2);
             break;
         case 4:             /* Reverse transparent */
             DPRINTF(("c_line_draw: mode=revtrans x1=%ld,y1=%ld,x2=%ld,y2=%ld color=%04X\n\r", x1, y1, x2, y2, (int)foreground));
@@ -55,19 +64,35 @@ long CDECL c_line_draw(Virtual *vwk, long x1, long y1, long x2, long y2,
         switch (mode) {
         case 1:             /* Replace */
             DPRINTF(("c_line_draw: mode=pat_replace x1=%ld,y1=%ld,x2=%ld,y2=%ld pattern=%d color=%04X\n\r", x1, y1, x2, y2, (int)pattern, (int)foreground));
-            gfx_draw_line(DRAW_PATTERN(1), x1, y1, x2, y2, foreground, background, pattern);
+            vdp_set_drawmode(DRAW_MODE_SOLID);
+            vdp_set_draw_color(foreground);
+            vdp_set_back_color(background);
+            vdp_set_pattern(pattern);
+            vdp_draw_line(x1, y1, x2, y2);
             break;
         case 2:             /* Transparent */
             DPRINTF(("c_line_draw: mode=pat_trans x1=%ld,y1=%ld,x2=%ld,y2=%ld pattern=%d color=%04X\n\r", x1, y1, x2, y2, (int)pattern, (int)foreground));
-            gfx_draw_line(DRAW_PATTERN(1) | DRAW_MODE_TRANS, x1, y1, x2, y2, foreground, background, pattern);
+            vdp_set_drawmode(DRAW_MODE_TRANS);
+            vdp_set_draw_color(foreground);
+            vdp_set_back_color(background);
+            vdp_set_pattern(pattern);
+            vdp_draw_line(x1, y1, x2, y2);
             break;
         case 3:             /* XOR */
             DPRINTF(("c_line_draw: mode=pat_xor x1=%ld,y1=%ld,x2=%ld,y2=%ld pattern=%d color=%04X\n\r", x1, y1, x2, y2, (int)pattern, (int)foreground));
-            gfx_draw_line(DRAW_PATTERN(1) | DRAW_MODE_XOR, x1, y1, x2, y2, foreground, background, pattern);
+            vdp_set_drawmode(DRAW_MODE_XOR);
+            vdp_set_draw_color(foreground);
+            vdp_set_back_color(background);
+            vdp_set_pattern(pattern);
+            vdp_draw_line(x1, y1, x2, y2);
             break;
         case 4:             /* Reverse transparent */
             DPRINTF(("c_line_draw: mode=pat_revtrans x1=%ld,y1=%ld,x2=%ld,y2=%ld pattern=%d color=%04X\n\r", x1, y1, x2, y2, (int)pattern, (int)foreground));
-            gfx_draw_line(DRAW_PATTERN(1) | DRAW_MODE_REVTRANS, x1, y1, x2, y2, foreground, background, pattern);
+            vdp_set_drawmode(DRAW_MODE_REVTRANS);
+            vdp_set_draw_color(foreground);
+            vdp_set_back_color(background);
+            vdp_set_pattern(pattern);
+            vdp_draw_line(x1, y1, x2, y2);
             break;
         }
     }

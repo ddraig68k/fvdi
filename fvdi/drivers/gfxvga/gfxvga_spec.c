@@ -194,7 +194,7 @@ long CDECL initialize(Virtual *vwk)
     char str[80], buf[80];
     str[0] = 0;
     access->funcs.cat("GfxVGA: Configuring, using base address of 0x", str);
-    access->funcs.ltoa(buf, (long) gfxvga_mem_base, 16);
+    access->funcs.ltoa(buf, (long) g_vdp_memory_base, 16);
     access->funcs.cat(buf, str);
     access->funcs.cat(".\r\n", str);
     access->funcs.puts(str);
