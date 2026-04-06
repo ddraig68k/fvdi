@@ -378,6 +378,7 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     int src_wrap, dst_wrap;
     int src_line_add, dst_line_add;
     unsigned long src_pos, dst_pos;
+    int from_screen;
     int to_screen;
 
     if (w <= 0 || h <= 0)
@@ -389,7 +390,8 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
 
     wk = vwk->real_address;
 
-    if (!src || !src->address || (src->address == wk->screen.mfdb.address)) {       /* From screen? */
+    from_screen = (!src || !src->address || (src->address == wk->screen.mfdb.address));
+    if (from_screen) {       /* From screen? */
         src_wrap = wk->screen.wrap;
         if (!(src_addr = wk->screen.shadow.address))
             src_addr = wk->screen.mfdb.address;
@@ -409,6 +411,27 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
         dst_wrap = (long)dst->wdwidth * 2 * dst->bitplanes;
         dst_addr = dst->address;
     }
+
+    if (from_screen && to_screen && (operation == 3)) {
+        long src_x2 = src_x + w - 1;
+        long src_y2 = src_y + h - 1;
+        long dst_x2 = dst_x + w - 1;
+        long dst_y2 = dst_y + h - 1;
+        int overlaps = !((src_x2 < dst_x) || (dst_x2 < src_x) ||
+                         (src_y2 < dst_y) || (dst_y2 < src_y));
+
+        if (!overlaps) {
+            DPRINTF(("c_blit_area: mode=vdp_copy_2d sx=%ld,sy=%ld,dx=%ld,dy=%ld,w=%ld,h=%ld\n\r", src_x, src_y, dst_x, dst_y, w, h));
+            vdp_copy_2d(((ULONG)wk->screen.mfdb.address) >> 1,
+                        ((ULONG)wk->screen.mfdb.address) >> 1,
+                        (UWORD)src_x, (UWORD)src_y,
+                        (UWORD)dst_x, (UWORD)dst_y,
+                        (UWORD)w, (UWORD)h,
+                        (UWORD)wk->screen.mfdb.width);
+            return 1;
+        }
+    }
+
     dst_pos = (short)dst_y * (long)dst_wrap + dst_x * PIXEL_SIZE;
     dst_line_add = dst_wrap - w * PIXEL_SIZE;
 
