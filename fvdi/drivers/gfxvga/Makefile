@@ -10,7 +10,7 @@ all: $(TARGET)
 
 top_srcdir = ../..
 
-OPTS    = -mshort -O2 -fomit-frame-pointer -std=c99
+OPTS    = -mshort -m68000 -O2 -fomit-frame-pointer -funroll-loops -std=c99
 include $(top_srcdir)/CONFIGVARS
 WARNINGS = -Wall -W -Wunused -Wundef -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs
 CFLAGS  = $(CPUOPTS) $(OPTS) $(WARNINGS) -I$(top_srcdir)/include -I$(top_srcdir)/drivers/include

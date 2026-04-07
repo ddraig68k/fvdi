@@ -20,7 +20,6 @@
 long CDECL c_line_draw(Virtual *vwk, long x1, long y1, long x2, long y2,
                        long pattern, long colour, long mode)
 {
-    Workstation *wk;
     unsigned long foreground, background;
 
     if ((long)vwk & 1) {
@@ -32,8 +31,6 @@ long CDECL c_line_draw(Virtual *vwk, long x1, long y1, long x2, long y2,
 
     c_get_colours(vwk, colour, &foreground, &background);
 
-    wk = vwk->real_address;
-
     if ((pattern & 0xffff) == 0xffff) {
         switch (mode) {
         case 1:             /* Replace */
@@ -43,6 +40,7 @@ long CDECL c_line_draw(Virtual *vwk, long x1, long y1, long x2, long y2,
             vdp_set_back_color(background);
             vdp_set_pattern(0xFFFF);
             vdp_draw_line(x1, y1, x2, y2);
+            break;
         case 2:             /* Transparent */
             DPRINTF(("c_line_draw: mode=transparent x1=%ld,y1=%ld,x2=%ld,y2=%ld color=%04X\n\r", x1, y1, x2, y2, (int)foreground));
             /* Transparent line? Don't draw */
