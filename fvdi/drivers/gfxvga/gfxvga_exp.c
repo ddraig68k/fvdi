@@ -134,14 +134,19 @@ static void revtransp(short *src_addr, int src_line_add, PIXEL *dst_addr, PIXEL 
     }
 }
 
-static UWORD extract_mono_row_bits(const short *row_base, int bit_offset)
+static UWORD extract_mono_row_bits(const short *row_base, int word_count, int start_bit)
 {
-    UWORD first = (UWORD)row_base[0];
+    int word_offset = start_bit >> 4;
+    int bit_offset = start_bit & 0x000f;
+    UWORD first = (UWORD)row_base[word_offset];
 
     if (bit_offset == 0)
         return first;
 
-    return (UWORD)((first << bit_offset) | ((UWORD)row_base[1] >> (16 - bit_offset)));
+    if (word_offset + 1 < word_count)
+        return (UWORD)((first << bit_offset) | ((UWORD)row_base[word_offset + 1] >> (16 - bit_offset)));
+
+    return (UWORD)(first << bit_offset);
 }
 
 static int expand_via_pattern(Virtual *vwk, MFDB *src, long src_x, long src_y,
@@ -150,19 +155,16 @@ static int expand_via_pattern(Virtual *vwk, MFDB *src, long src_x, long src_y,
 {
     const short *src_base;
     int src_row_words;
-    int bit_offset;
     UWORD mode;
+    long tile_y;
 
     if (!src || !src->address || src->bitplanes != 1)
-        return 0;
-    if ((w != 8 || h != 8) && (w != 16 || h != 16))
         return 0;
     if (operation != 1 && operation != 2)
         return 0;
 
     src_row_words = src->wdwidth;
-    src_base = (const short *)src->address + src_y * src_row_words + (src_x >> 4);
-    bit_offset = (int)(src_x & 0x000f);
+    src_base = (const short *)src->address;
 
     mode = (operation == 1) ? DRAW_MODE_SOLID : DRAW_MODE_TRANS;
 
@@ -170,29 +172,52 @@ static int expand_via_pattern(Virtual *vwk, MFDB *src, long src_x, long src_y,
     vdp_set_draw_color(foreground);
     vdp_set_back_color(background);
 
-    if (w == 8 && h == 8) {
-        UWORD rows[8];
-        int row;
+    for (tile_y = 0; tile_y < h; tile_y += 16) {
+        long tile_h = h - tile_y;
+        long tile_x;
 
-        for (row = 0; row < 8; row++) {
-            UWORD bits = extract_mono_row_bits(src_base + row * src_row_words, bit_offset);
-            rows[row] = bits & 0xFF00;
+        if (tile_h > 16)
+            tile_h = 16;
+
+        for (tile_x = 0; tile_x < w; tile_x += 16) {
+            long tile_w = w - tile_x;
+            const short *tile_src = src_base + (src_y + tile_y) * src_row_words;
+            int use_8x8 = (tile_w <= 8 && tile_h <= 8);
+            long row;
+
+            if (tile_w > 16)
+                tile_w = 16;
+
+            if (use_8x8) {
+                UWORD rows[8] = {0};
+                UWORD mask = (UWORD)(0xFFFFU << (16 - tile_w));
+
+                for (row = 0; row < tile_h; row++) {
+                    UWORD bits = extract_mono_row_bits(tile_src + row * src_row_words,
+                                                       src_row_words, (int)(src_x + tile_x));
+                    rows[row] = bits & mask;
+                }
+
+                vdp_upload_pattern8(CUSTOM_PATTERN_SLOT, rows);
+            } else {
+                UWORD rows[16] = {0};
+                UWORD mask = (tile_w == 16) ? 0xFFFFU : (UWORD)(0xFFFFU << (16 - tile_w));
+
+                for (row = 0; row < tile_h; row++) {
+                    UWORD bits = extract_mono_row_bits(tile_src + row * src_row_words,
+                                                       src_row_words, (int)(src_x + tile_x));
+                    rows[row] = bits & mask;
+                }
+
+                vdp_upload_pattern16(CUSTOM_PATTERN_SLOT, rows);
+            }
+
+            vdp_set_pattern(VDP_PATTERN_RELATIVE | CUSTOM_PATTERN_SLOT);
+            vdp_draw_fill_rect((UWORD)(dst_x + tile_x), (UWORD)(dst_y + tile_y),
+                               (UWORD)(dst_x + tile_x + tile_w - 1),
+                               (UWORD)(dst_y + tile_y + tile_h - 1));
         }
-
-        vdp_upload_pattern8(CUSTOM_PATTERN_SLOT, rows);
-    } else {
-        UWORD rows[16];
-        int row;
-
-        for (row = 0; row < 16; row++)
-            rows[row] = extract_mono_row_bits(src_base + row * src_row_words, bit_offset);
-
-        vdp_upload_pattern16(CUSTOM_PATTERN_SLOT, rows);
     }
-
-    vdp_set_pattern(VDP_PATTERN_RELATIVE | CUSTOM_PATTERN_SLOT);
-    vdp_draw_fill_rect((UWORD)dst_x, (UWORD)dst_y,
-                       (UWORD)(dst_x + w - 1), (UWORD)(dst_y + h - 1));
 
     (void)vwk;
     return 1;
