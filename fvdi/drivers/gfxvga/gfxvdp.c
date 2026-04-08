@@ -653,16 +653,16 @@ void vdp_copy_2d(
     UWORD height_lines,
     UWORD screen_width_pixels)
 {
-    UWORD pitch_words = screen_width_pixels; // 16bpp
+    ULONG pitch_words = (ULONG)screen_width_pixels; /* 16bpp: 1 pixel == 1 word */
     UWORD width_words = width_pixels;
 
     ULONG src_addr = src_base_word
-                      + (src_y * pitch_words)
-                      + src_x;
+                      + (ULONG)src_y * pitch_words
+                      + (ULONG)src_x;
 
     ULONG dst_addr = dst_base_word
-                      + (dst_y * pitch_words)
-                      + dst_x;
+                      + (ULONG)dst_y * pitch_words
+                      + (ULONG)dst_x;
 
     //while (VDP_REG_READ(REG_STATUS) & 1);
     vdp_wait_busy();

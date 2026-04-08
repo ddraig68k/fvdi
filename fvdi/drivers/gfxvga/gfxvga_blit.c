@@ -383,11 +383,42 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     if (w <= 0 || h <= 0)
         return 1;
 
+    wk = vwk->real_address;
+
+    /*
+     * Hardware-accelerated screen-to-screen copy via VDP 2D blitter.
+     * Conditions:
+     *   - operation 3 (plain copy) only - hardware has no ROP support
+     *   - both source and destination are the screen framebuffer
+     *   - no shadow buffer in use (shadow means source reads come from CPU RAM, not VRAM)
+     *   - geometry does not require a backward (bottom-to-top / right-to-left) copy,
+     *     which the hardware does not support: skip if dst is below src, or on same
+     *     row to the right of src (overlapping forward-copy hazard).
+     */
+    if (operation == 3
+        && !wk->screen.shadow.address
+        && is_screen(wk, src)
+        && is_screen(wk, dst)
+        && !(src_y < dst_y)
+        && !(src_y == dst_y && src_x < dst_x)) {
+        /* Compute absolute VDP word addresses to avoid relying on vdp_copy_2d
+         * internal coordinate arithmetic, which uses UWORD and can overflow
+         * with -mshort when (y * width) > 65535. Pass x=0,y=0 as offsets. */
+        ULONG screen_width = (ULONG)wk->screen.mfdb.width;
+        ULONG fb_word = ((ULONG)wk->screen.mfdb.address - (ULONG)g_vdp_memory_base) >> 1;
+        ULONG src_word = fb_word + (ULONG)src_y * screen_width + (ULONG)src_x;
+        ULONG dst_word = fb_word + (ULONG)dst_y * screen_width + (ULONG)dst_x;
+        vdp_copy_2d(src_word, dst_word,
+                    0, 0,
+                    0, 0,
+                    (UWORD)w, (UWORD)h,
+                    (UWORD)screen_width);
+        return 1;
+    }
+
     DPRINTF(("c_blit_area called: sx=%ld,sy=%ld,dx=%ld,dy=%ld w=%ld,h%ld\n\r", (ULONG)src, src_x, src_y, dst_x, dst_y, w, h));
     DPRINTF(("c_blit_area: src MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r", (ULONG)src->address, src->width, src->height, src->wdwidth, src->standard, src->bitplanes));
     DPRINTF(("c_blit_area: dst MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r", (ULONG)dst->address, dst->width, dst->height, dst->wdwidth, dst->standard, dst->bitplanes));
-
-    wk = vwk->real_address;
 
     if (!src || !src->address || (src->address == wk->screen.mfdb.address)) {       /* From screen? */
         src_wrap = wk->screen.wrap;
