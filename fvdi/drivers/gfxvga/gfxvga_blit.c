@@ -6,7 +6,7 @@
 #include "driver.h"
 #include "../bitplane/bitplane.h"
 
-//#define FVDI_DEBUG 1
+#define FVDI_DEBUG 1
 #include "gfxvga.h"
 
 #define PIXEL		short
@@ -380,10 +380,18 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     unsigned long src_pos, dst_pos;
     int to_screen;
 
-    if (w <= 0 || h <= 0)
+    GFX_CP_ENTER(CP_BLIT_AREA);
+    my_kprintf("CP+09a 99\n");  /* After GFX_CP_ENTER */
+
+    if (w <= 0 || h <= 0) {
+        GFX_CP_EXIT(CP_BLIT_AREA);
         return 1;
+    }
 
     wk = vwk->real_address;
+    my_kprintf("CP+09b 99\n");  /* After wk assignment */
+
+    DPRINTF(("c_blit_area: entering op=%ld sx=%ld sy=%ld dx=%ld dy=%ld w=%ld h=%ld\n", operation, src_x, src_y, dst_x, dst_y, w, h));
 
     /*
      * Hardware-accelerated screen-to-screen copy via VDP 2D blitter.
@@ -413,12 +421,26 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
                     0, 0,
                     (UWORD)w, (UWORD)h,
                     (UWORD)screen_width);
+        GFX_CP_EXIT(CP_BLIT_AREA);
         return 1;
     }
 
-    DPRINTF(("c_blit_area called: sx=%ld,sy=%ld,dx=%ld,dy=%ld w=%ld,h%ld\n\r", (ULONG)src, src_x, src_y, dst_x, dst_y, w, h));
-    DPRINTF(("c_blit_area: src MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r", (ULONG)src->address, src->width, src->height, src->wdwidth, src->standard, src->bitplanes));
-    DPRINTF(("c_blit_area: dst MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r", (ULONG)dst->address, dst->width, dst->height, dst->wdwidth, dst->standard, dst->bitplanes));
+    my_kprintf("CP+09c 99\n");  /* After VDP hardware fast-path check */
+    DPRINTF(("c_blit_area called: sx=%ld,sy=%ld,dx=%ld,dy=%ld w=%ld,h=%ld\n\r", src_x, src_y, dst_x, dst_y, w, h));
+    DPRINTF(("c_blit_area: src MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r",
+             src ? (ULONG)src->address : 0UL,
+             src ? src->width : 0,
+             src ? src->height : 0,
+             src ? src->wdwidth : 0,
+             src ? src->standard : 0,
+             src ? src->bitplanes : 0));
+    DPRINTF(("c_blit_area: dst MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r",
+             dst ? (ULONG)dst->address : 0UL,
+             dst ? dst->width : 0,
+             dst ? dst->height : 0,
+             dst ? dst->wdwidth : 0,
+             dst ? dst->standard : 0,
+             dst ? dst->bitplanes : 0));
 
     if (!src || !src->address || (src->address == wk->screen.mfdb.address)) {       /* From screen? */
         src_wrap = wk->screen.wrap;
@@ -454,6 +476,7 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     dst_addr += dst_pos / PIXEL_SIZE;
     src_line_add /= PIXEL_SIZE;     /* Change into pixel count */
     dst_line_add /= PIXEL_SIZE;
+    my_kprintf("CP+09d 99\n");  /* After address arithmetic */
 
     dst_addr_fast = wk->screen.shadow.address;  /* May not really be to screen at all, but... */
 
@@ -495,6 +518,7 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
 
     (void) to_screen;
     (void) dst_addr_fast;
-    
+
+    GFX_CP_EXIT(CP_BLIT_AREA);
     return 1;   /* Return as completed */
 }

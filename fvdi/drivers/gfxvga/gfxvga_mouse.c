@@ -162,6 +162,8 @@ long CDECL c_mouse_draw(Workstation *wk, long x, long y, Mouse *mouse)
     unsigned long state;
     long mouseparm = (long) mouse;
 
+    GFX_CP_ENTER(CP_MOUSE_DRAW);
+
     /* Need to mask x since it contains old operation in high bits (use that?) */
     x &= 0xffffL;
 
@@ -188,6 +190,7 @@ long CDECL c_mouse_draw(Workstation *wk, long x, long y, Mouse *mouse)
 
         if (!fix_shape)
             set_mouse_shape(mouse, mouse_data);
+        GFX_CP_EXIT(CP_MOUSE_DRAW);
         return 0;
     }
 
@@ -201,5 +204,6 @@ long CDECL c_mouse_draw(Workstation *wk, long x, long y, Mouse *mouse)
         draw_mouse(wk, (short)x, (short)y);
     }
 
+    GFX_CP_EXIT(CP_MOUSE_DRAW);
     return 0;
 }

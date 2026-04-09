@@ -4,7 +4,7 @@
  * This file implements for FVDI API functions c_read_pixel() and c_write_pixel().
  */
 
-//#define FVDI_DEBUG 1
+#define FVDI_DEBUG 1
 #include "gfxvga.h"
 
 #include "driver.h"
@@ -26,10 +26,14 @@ c_write_pixel(Virtual *vwk, MFDB *dst, long x, long y, long colour)
     Workstation *wk;
     long offset;
 
-    if ((long)vwk & 1)
-        return 0;
+    GFX_CP_ENTER(CP_WRITE_PIXEL);
 
-    DPRINTF(("c_write_pixel: x=%ld,y=%ld color=%ld\n\r", x, y, (int)colour));
+    if ((long)vwk & 1) {
+        GFX_CP_EXIT(CP_WRITE_PIXEL);
+        return 0;
+    }
+
+    DPRINTF(("c_write_pixel: x=%ld,y=%ld color=%ld\n\r", x, y, colour));
 
     wk = vwk->real_address;
     if (!dst || !dst->address || (dst->address == wk->screen.mfdb.address)) {
@@ -40,7 +44,7 @@ c_write_pixel(Virtual *vwk, MFDB *dst, long x, long y, long colour)
         *(PIXEL *)((long)dst->address + offset) = colour;
     }
 
-
+    GFX_CP_EXIT(CP_WRITE_PIXEL);
     return 1;
 }
 
@@ -50,6 +54,8 @@ c_read_pixel(Virtual *vwk, MFDB *src, long x, long y)
     Workstation *wk;
     long offset;
     unsigned PIXEL colour;
+
+    GFX_CP_ENTER(CP_READ_PIXEL);
 
     DPRINTF(("c_read_pixel: x=%ld,y=%ld\n\r", x, y));
 
@@ -62,5 +68,6 @@ c_read_pixel(Virtual *vwk, MFDB *src, long x, long y)
         colour = *(unsigned PIXEL *)((long)src->address + offset);
     }
 
+    GFX_CP_EXIT(CP_READ_PIXEL);
     return colour;
 }

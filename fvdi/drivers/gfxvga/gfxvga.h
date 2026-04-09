@@ -9,13 +9,32 @@
 
 
 #define KPRINTF_ADDRESS 0x80517c
-typedef int (*kprintf_func_t)(const char *fmt, ...);
+typedef int (*kprintf_func_t)(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 extern kprintf_func_t my_kprintf;
+extern short gfx_checkpoint;
+extern unsigned long gfx_checkpoint_seq;
 #ifdef FVDI_DEBUG
 #define DPRINTF(x) my_kprintf x
+#define GFX_CP_ENTER(id) do { if (gfx_checkpoint) my_kprintf("CP+%02d %lu\n", (id), ++gfx_checkpoint_seq); } while (0)
+#define GFX_CP_EXIT(id)  do { if (gfx_checkpoint) my_kprintf("CP-%02d %lu\n", (id), ++gfx_checkpoint_seq); } while (0)
 #else
 #define DPRINTF(x)
+#define GFX_CP_ENTER(id)
+#define GFX_CP_EXIT(id)
 #endif
+
+enum {
+    CP_GET_COLOUR = 1,
+    CP_GET_COLOURS,
+    CP_SET_COLOURS,
+    CP_WRITE_PIXEL,
+    CP_READ_PIXEL,
+    CP_LINE_DRAW,
+    CP_EXPAND_AREA,
+    CP_FILL_AREA,
+    CP_BLIT_AREA,
+    CP_MOUSE_DRAW
+};
 
 /* Function prototypes. */
 long CDECL c_get_colour(Virtual *vwk, long colour);

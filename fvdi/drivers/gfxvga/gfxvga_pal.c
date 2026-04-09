@@ -6,6 +6,7 @@
 #include "driver.h"
 #include "../bitplane/bitplane.h"
 #include "relocate.h"
+#include "gfxvga.h"
 
 #define red_bits   5
 #define green_bits 6
@@ -18,6 +19,9 @@ long CDECL c_get_colour(Virtual *vwk, long colour)
     Colour *fore_pal, *back_pal;
     unsigned short foreground, background;
     unsigned short *realp;
+    long result;
+
+    GFX_CP_ENTER(CP_GET_COLOUR);
 
     local_palette = vwk->palette;
     if (local_palette && !((long)local_palette & 1))    /* Complete local palette? */
@@ -39,7 +43,9 @@ long CDECL c_get_colour(Virtual *vwk, long colour)
     foreground = *realp;
     realp = (unsigned short *)&back_pal[colour >> 16].real;
     background = *realp;
-    return ((unsigned long)background << 16) | (unsigned long)foreground;
+    result = ((unsigned long)background << 16) | (unsigned long)foreground;
+    GFX_CP_EXIT(CP_GET_COLOUR);
+    return result;
 }
 
 
@@ -48,6 +54,8 @@ void CDECL c_get_colours(Virtual *vwk, long colour, unsigned long *foreground, u
     Colour *local_palette, *global_palette;
     Colour *fore_pal, *back_pal;
     unsigned short *realp;
+
+    GFX_CP_ENTER(CP_GET_COLOURS);
 
     local_palette = vwk->palette;
     if (local_palette && !((long)local_palette & 1))    /* Complete local palette? */
@@ -69,6 +77,7 @@ void CDECL c_get_colours(Virtual *vwk, long colour, unsigned long *foreground, u
     *foreground = *realp;
     realp = (unsigned short *)&back_pal[colour >> 16].real;
     *background = *realp;
+    GFX_CP_EXIT(CP_GET_COLOURS);
 }
 
 
@@ -79,6 +88,8 @@ void CDECL c_set_colours(Virtual *vwk, long start, long entries, unsigned short 
     unsigned long tc_word;
     int i;
     short *realp;
+
+    GFX_CP_ENTER(CP_SET_COLOURS);
 
     (void) vwk;
     if ((long)requested & 1) {          /* New entries? */
@@ -126,4 +137,5 @@ void CDECL c_set_colours(Virtual *vwk, long start, long entries, unsigned short 
             *realp = tc_word;
         }
     }
+    GFX_CP_EXIT(CP_SET_COLOURS);
 }

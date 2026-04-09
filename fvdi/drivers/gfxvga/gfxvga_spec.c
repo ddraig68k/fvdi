@@ -66,11 +66,14 @@ const Mode *graphics_mode = &mode[0];
 
 short fix_shape = 0;
 short no_restore = 0;
+short gfx_checkpoint = 1;
+unsigned long gfx_checkpoint_seq = 0;
 
 static Option const options[] = {
     {"debug",      { &debug }, 2 },              /* debug, turn on debugging aids */
     {"fixshape",   { &fix_shape }, 1 },          /* fixed shape; do not allow mouse shape changes */
     {"norestore",  { &no_restore }, 1 },
+    {"checkpoint", { &gfx_checkpoint }, 1 },
 };
 
 /*

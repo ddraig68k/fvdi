@@ -656,6 +656,13 @@ void vdp_copy_2d(
     ULONG pitch_words = (ULONG)screen_width_pixels; /* 16bpp: 1 pixel == 1 word */
     UWORD width_words = width_pixels;
 
+    /* Sanity checks: zero width/height would be nonsensical */
+    if (!width_pixels || !height_lines) {
+        /* Cannot use DPRINTF here as kprintf_func_t not available in this unit.
+         * Skip silent check instead - let hardware detect error if it occurs. */
+        return;
+    }
+
     ULONG src_addr = src_base_word
                       + (ULONG)src_y * pitch_words
                       + (ULONG)src_x;
@@ -664,7 +671,6 @@ void vdp_copy_2d(
                       + (ULONG)dst_y * pitch_words
                       + (ULONG)dst_x;
 
-    //while (VDP_REG_READ(REG_STATUS) & 1);
     vdp_wait_busy();
 
     VDP_REG_WRITE(REG_PARAM_DATA0, (src_addr >> 16));
