@@ -60,20 +60,17 @@ void CDECL (*set_colours_r)(Virtual *vwk, long start, long entries, unsigned sho
 
 long wk_extend = 0;
 short accel_s = 0;
-short accel_c = A_SET_PAL | A_GET_COL | A_SET_PIX | A_GET_PIX | A_FILL | A_LINE | A_MOUSE;
+short accel_c = A_SET_PAL | A_GET_COL | A_SET_PIX | A_GET_PIX | A_BLIT | A_FILL | A_EXPAND | A_LINE | A_MOUSE;
 
 const Mode *graphics_mode = &mode[0];
 
-short fix_shape = 1;
+short fix_shape = 0;
 short no_restore = 0;
-short gfx_checkpoint = 1;
-unsigned long gfx_checkpoint_seq = 0;
 
 static Option const options[] = {
     {"debug",      { &debug }, 2 },              /* debug, turn on debugging aids */
     {"fixshape",   { &fix_shape }, 1 },          /* fixed shape; do not allow mouse shape changes */
     {"norestore",  { &no_restore }, 1 },
-    {"checkpoint", { &gfx_checkpoint }, 1 },
 };
 
 /*
@@ -146,7 +143,6 @@ long CDECL initialize(Virtual *vwk)
     Colour *old_palette_colours;
 
     access->funcs.puts("Initializing GfxVGA driver...\r\n");
-    access->funcs.puts("GfxVGA build: no-accel-expand-blit\r\n");
     
     screen_address = (short *)0xA00000;
 
