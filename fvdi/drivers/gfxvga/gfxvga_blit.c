@@ -386,7 +386,6 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     int to_screen;
 
     GFX_CP_ENTER(CP_BLIT_AREA);
-    my_kprintf("CP+09a 99\n");  /* After GFX_CP_ENTER */
 
     if (w <= 0 || h <= 0) {
         GFX_CP_EXIT(CP_BLIT_AREA);
@@ -403,10 +402,8 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
         GFX_CP_EXIT(CP_BLIT_AREA);
         return -1;
     }
-    my_kprintf("CP+09b 99\n");  /* After wk assignment */
 
     DPRINTF(("c_blit_area: entering op=%ld sx=%ld sy=%ld dx=%ld dy=%ld w=%ld h=%ld\n", operation, src_x, src_y, dst_x, dst_y, w, h));
-    my_kprintf("CP+09c 99\n");
 
     if (src && ((ULONG)src & 1UL)) {
         my_kprintf("CP+09u srcmfdb=%lX\n", (ULONG)src);
@@ -462,17 +459,7 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
         dst_max_h = dst->height;
     }
 
-    /* Containment mode: only accelerate direct screen-to-screen blits.
-     * Non-screen MFDB traffic is delegated to fallback implementation. */
-    if ((src && src->address && src->address != wk->screen.mfdb.address) ||
-        (dst && dst->address && dst->address != wk->screen.mfdb.address)) {
-        my_kprintf("CP+09q\n");
-        GFX_CP_EXIT(CP_BLIT_AREA);
-        return -1;
-    }
-
     if (src_wrap <= 0 || dst_wrap <= 0 || (src_wrap & 1) || (dst_wrap & 1)) {
-        my_kprintf("CP+09u wrap s=%d d=%d\n", src_wrap, dst_wrap);
         GFX_CP_EXIT(CP_BLIT_AREA);
         return -1;
     }
@@ -517,7 +504,6 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     src_base = (ULONG)src_addr;
     dst_base = (ULONG)dst_addr;
     if ((src_base & 1UL) || (dst_base & 1UL)) {
-        my_kprintf("CP+09u align s=%lX d=%lX\n", src_base, dst_base);
         GFX_CP_EXIT(CP_BLIT_AREA);
         return -1;
     }
@@ -532,13 +518,11 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     dst_last = dst_first + (ULONG)(h - 1) * (ULONG)dst_wrap + (ULONG)(w - 1) * PIXEL_SIZE;
     if ((src_first & 1UL) || (src_last & 1UL) ||
         src_last < src_first || src_first < src_base || src_last >= (src_base + src_size_bytes)) {
-        my_kprintf("CP+09u src=%lX..%lX lim=%lX..%lX\n", src_first, src_last, src_base, src_base + src_size_bytes);
         GFX_CP_EXIT(CP_BLIT_AREA);
         return -1;
     }
     if ((dst_first & 1UL) || (dst_last & 1UL) ||
         dst_last < dst_first || dst_first < dst_base || dst_last >= (dst_base + dst_size_bytes)) {
-        my_kprintf("CP+09u dst=%lX..%lX lim=%lX..%lX\n", dst_first, dst_last, dst_base, dst_base + dst_size_bytes);
         GFX_CP_EXIT(CP_BLIT_AREA);
         return -1;
     }
@@ -560,11 +544,9 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     src_line_add /= PIXEL_SIZE;     /* Change into pixel count */
     dst_line_add /= PIXEL_SIZE;
     if (((ULONG)src_addr & 1UL) || ((ULONG)dst_addr & 1UL)) {
-        my_kprintf("CP+09u ptr s=%lX d=%lX\n", (ULONG)src_addr, (ULONG)dst_addr);
         GFX_CP_EXIT(CP_BLIT_AREA);
         return -1;
     }
-    my_kprintf("CP+09d 99\n");  /* After address arithmetic */
 
     dst_addr_fast = wk->screen.shadow.address;  /* May not really be to screen at all, but... */
 

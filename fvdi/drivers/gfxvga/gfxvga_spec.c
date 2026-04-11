@@ -144,7 +144,7 @@ long CDECL initialize(Virtual *vwk)
 
     access->funcs.puts("Initializing GfxVGA driver...\r\n");
     
-    screen_address = (short *)0xA00000;
+    screen_address = (short *)g_vdp_memory_base;
 
     DPRINTF(("GfxVGA: initialize()\n\r"));
 
@@ -187,8 +187,12 @@ long CDECL initialize(Virtual *vwk)
     }
     c_initialize_palette(vwk, 0, wk->screen.palette.size, default_vdi_colors, wk->screen.palette.colours);
 
-    // FIXME: The EmuTOS XBIOS needs to be made gfxvga aware and then made to return the correct address here.
-    wk->screen.mfdb.address = Physbase();
+    /*
+     * Fallback blits and cursor save/restore use mfdb.address directly.
+     * EmuTOS Physbase() still reports the native framebuffer, so point the
+     * workstation at the actual GfxVGA framebuffer instead.
+     */
+    wk->screen.mfdb.address = (short *)g_vdp_memory_base;
 
     access->funcs.puts("GfxVGA: Initializing...\r\n");
     char str[80], buf[80];
@@ -199,7 +203,7 @@ long CDECL initialize(Virtual *vwk)
     access->funcs.cat(".\r\n", str);
     access->funcs.puts(str);
 
-	vdp_set_control(DISPMODE_BITMAPHIRES);
+	vdp_set_control(DISPMODE_BITMAPHIRES | SPRITE_ENABLE);
 
     device.byte_width = wk->screen.wrap;
     device.address = wk->screen.mfdb.address;

@@ -530,6 +530,7 @@ void vdp_sprite_data_addr(ULONG addr)
 void vdp_vram_write(ULONG addr, const UWORD *src, ULONG count)
 {
     size_t words = count >> 1;
+    UWORD saved_page = vdp_get_mempage();
 
     /* Convert to word address once */
     ULONG vram_word = addr >> 1;
@@ -558,6 +559,8 @@ void vdp_vram_write(ULONG addr, const UWORD *src, ULONG count)
         vram_word  += chunk_words;
         words      -= chunk_words;
     }
+
+    vdp_set_mempage(saved_page);
 }
 
 void vdp_init_tile_layer(tile_layer_t *layer)

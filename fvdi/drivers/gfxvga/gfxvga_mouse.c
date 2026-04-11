@@ -6,261 +6,246 @@
 #include "driver.h"
 #include "../bitplane/bitplane.h"
 
-#define PIXEL       short
-#define PIXEL_SIZE  sizeof(PIXEL)
+#define GFXVGA_CURSOR_SPRITE_ADDR 0x001FF000UL
+#define GFXVGA_CURSOR_WIDTH 16
+#define GFXVGA_CURSOR_HEIGHT 16
+#define GFXVGA_CURSOR_BYTES_PER_ROW 8
+#define GFXVGA_CURSOR_SPRITE_BYTES (GFXVGA_CURSOR_HEIGHT * GFXVGA_CURSOR_BYTES_PER_ROW)
+#define GFXVGA_CURSOR_PALETTE_BANK 1
+#define GFXVGA_CURSOR_PALETTE_BASE (GFXVGA_CURSOR_PALETTE_BANK * 256)
+#define GFXVGA_CURSOR_BG_INDEX 1
+#define GFXVGA_CURSOR_FG_INDEX 2
+#define GFXVGA_CURSOR_OVERLAY_WIDTH 320
+#define GFXVGA_CURSOR_OVERLAY_HEIGHT 240
 
-static unsigned long mouse_save_state = 0;
-static long mouse_old_colours = 0;
-static PIXEL mouse_foreground = 0xffff;
-static PIXEL mouse_background = 0;
 static volatile short mouse_draw_busy = 0;
-
-static unsigned short mouse_data[16 * 2] = {
-    0xffff, 0x0000, 0x7ffe, 0x3ffc, 0x3ffc, 0x1ff8, 0x1ff8, 0x0ff0,
-    0x0ff0, 0x07e0, 0x07e0, 0x03c0, 0x03c0, 0x0180, 0x0180, 0x0000
+static short cursor_initialized = 0;
+static long cursor_colour_state = -1;
+static unsigned short cursor_mask[GFXVGA_CURSOR_HEIGHT] = {
+    0xffff, 0x7ffe, 0x3ffc, 0x1ff8,
+    0x0ff0, 0x07e0, 0x03c0, 0x0180,
+    0x0180, 0x03c0, 0x07e0, 0x0ff0,
+    0x1ff8, 0x3ffc, 0x7ffe, 0xffff
 };
-static PIXEL mouse_saved[16 * 16];
+static unsigned short cursor_data[GFXVGA_CURSOR_HEIGHT] = {
+    0x0000, 0x3ffc, 0x1ff8, 0x0ff0,
+    0x07e0, 0x03c0, 0x0180, 0x0000,
+    0x0000, 0x0180, 0x03c0, 0x07e0,
+    0x0ff0, 0x1ff8, 0x3ffc, 0x0000
+};
+static unsigned short cursor_sprite_words[GFXVGA_CURSOR_SPRITE_BYTES / sizeof(unsigned short)];
 
+static unsigned short pack_sprite_word(unsigned short p0,
+                                       unsigned short p1,
+                                       unsigned short p2,
+                                       unsigned short p3)
+{
+    return (unsigned short)((p0 << 12) | (p1 << 8) | (p2 << 4) | p3);
+}
 
+static void build_cursor_sprite(const unsigned short *mask, const unsigned short *data)
+{
+    int row;
 
-static void set_mouse_shape(Mouse *mouse, unsigned short *masks)
+    for (row = 0; row < GFXVGA_CURSOR_HEIGHT; row++) {
+        unsigned short mask_bits = mask[row];
+        unsigned short data_bits = data[row];
+        int group;
+
+        for (group = 0; group < 4; group++) {
+            unsigned short pixels[4];
+            int pixel;
+
+            for (pixel = 0; pixel < 4; pixel++) {
+                unsigned short bit = (unsigned short)(0x8000u >> (group * 4 + pixel));
+
+                if (data_bits & bit)
+                    pixels[pixel] = GFXVGA_CURSOR_FG_INDEX;
+                else if (mask_bits & bit)
+                    pixels[pixel] = GFXVGA_CURSOR_BG_INDEX;
+                else
+                    pixels[pixel] = 0;
+            }
+
+            cursor_sprite_words[row * 4 + group] = pack_sprite_word(pixels[0], pixels[1], pixels[2], pixels[3]);
+        }
+    }
+}
+
+static short scale_axis(short value, short src_extent, short dst_extent)
+{
+    long scaled;
+
+    if (src_extent <= 0)
+        return value;
+
+    scaled = (long)value * (long)dst_extent;
+    if (scaled >= 0)
+        scaled += src_extent / 2;
+    else
+        scaled -= src_extent / 2;
+
+    return (short)(scaled / src_extent);
+}
+
+static int clamp_palette_index(int idx, int max_idx)
+{
+    if (idx < 0)
+        return 0;
+    if (idx > max_idx)
+        return max_idx;
+    return idx;
+}
+
+static void upload_cursor_palette(Workstation *wk)
+{
+    unsigned short background = 0x0000;
+    unsigned short foreground = 0xffff;
+    long colour_state = -1;
+
+    if (wk && wk->screen.palette.colours) {
+        Colour *global_palette = wk->screen.palette.colours;
+        unsigned short *realp;
+        int max_idx = 255;
+        int bg_idx;
+        int fg_idx;
+
+        if (wk->screen.palette.size > 0 && wk->screen.palette.size - 1 < max_idx)
+            max_idx = wk->screen.palette.size - 1;
+
+        bg_idx = clamp_palette_index((int)wk->mouse.colour.background, max_idx);
+        fg_idx = clamp_palette_index((int)wk->mouse.colour.foreground, max_idx);
+
+        colour_state = ((unsigned long)(unsigned short)bg_idx << 16)
+                     | (unsigned short)fg_idx;
+        realp = (unsigned short *)&global_palette[bg_idx].real;
+        background = *realp;
+        realp = (unsigned short *)&global_palette[fg_idx].real;
+        foreground = *realp;
+    }
+
+    if (colour_state == cursor_colour_state)
+        return;
+
+    VDP_REG_WRITE(REG_PALETTE_IDX, GFXVGA_CURSOR_PALETTE_BASE);
+    VDP_REG_WRITE(REG_PALETTE_DATA, 0x0000);
+    VDP_REG_WRITE(REG_PALETTE_DATA, background);
+    VDP_REG_WRITE(REG_PALETTE_DATA, foreground);
+    cursor_colour_state = colour_state;
+}
+
+static void upload_cursor_shape(void)
+{
+    vdp_sprite_data_addr(GFXVGA_CURSOR_SPRITE_ADDR);
+    vdp_vram_write(GFXVGA_CURSOR_SPRITE_ADDR, cursor_sprite_words, GFXVGA_CURSOR_SPRITE_BYTES);
+    vdp_set_sprite_index(0);
+    vdp_write_sprite_tile(0);
+}
+
+static void ensure_cursor_initialized(void)
+{
+    if (cursor_initialized)
+        return;
+
+    build_cursor_sprite(cursor_mask, cursor_data);
+    upload_cursor_shape();
+    upload_cursor_palette(NULL);
+    vdp_set_control(vdp_get_control() | SPRITE_ENABLE);
+    vdp_set_sprite_palette(GFXVGA_CURSOR_PALETTE_BANK);
+    vdp_set_sprite_index(0);
+    vdp_write_sprite_x(-32);
+    vdp_write_sprite_y(-32);
+    vdp_write_sprite_tile(0);
+    vdp_write_sprite_attr(0, 0, 0, 0);
+    cursor_initialized = 1;
+}
+
+static void set_mouse_shape(Mouse *mouse)
 {
     int i;
 
-    for (i = 0; i < 16; i++)
-    {
-        *masks++ = mouse->mask[i];
-        *masks++ = mouse->data[i];
+    if (!mouse)
+        return;
+
+    for (i = 0; i < GFXVGA_CURSOR_HEIGHT; i++) {
+        cursor_mask[i] = (unsigned short)mouse->mask[i];
+        cursor_data[i] = (unsigned short)mouse->data[i];
     }
+
+    build_cursor_sprite(cursor_mask, cursor_data);
+    upload_cursor_shape();
 }
 
-
-static void hide_mouse(Workstation *wk)
+static void hide_mouse(void)
 {
-    unsigned long state = mouse_save_state;
-    ULONG fb_start, fb_end;
-    ULONG offset, dst_first, dst_last;
-    PIXEL *dst;
-    PIXEL *save_w;
-    short i, w, h;
-    unsigned long wrap;
-
-    if (!wk || !wk->screen.mfdb.address || wk->screen.wrap <= 0 || wk->screen.mfdb.height <= 0) {
-        mouse_save_state = 0;
-        return;
-    }
-
-    w = ((state >> 28) & 0x0f) + 1;
-    h = ((state >> 24) & 0x0f) + 1;
-    offset = state & 0x00ffffffUL;
-    fb_start = (ULONG)wk->screen.mfdb.address;
-    fb_end = fb_start + (ULONG)wk->screen.wrap * (ULONG)wk->screen.mfdb.height;
-
-    if (w <= 0 || w > 16 || h <= 0 || h > 16 || (offset & 1UL)) {
-        mouse_save_state = 0;
-        return;
-    }
-
-    dst_first = fb_start + offset;
-    dst_last = dst_first + (ULONG)(h - 1) * (ULONG)wk->screen.wrap + (ULONG)(w - 1) * PIXEL_SIZE;
-    if (dst_first < fb_start || dst_last >= fb_end || dst_last < dst_first) {
-        mouse_save_state = 0;
-        return;
-    }
-
-    dst = (PIXEL *)dst_first;
-
-    w--;
-    h--;
-    save_w = mouse_saved;
-    wrap = wk->screen.wrap - (w + 1) * PIXEL_SIZE;
-    wrap /= PIXEL_SIZE;     /* Change into pixel count */
-
-    do
-    {
-        i = w;
-        do
-        {
-            *dst++ = *save_w++;
-        } while (--i >= 0);
-        dst += wrap;
-    } while (--h >= 0);
-
-    mouse_save_state = 0;
+    ensure_cursor_initialized();
+    vdp_set_sprite_index(0);
+    vdp_write_sprite_x(-32);
+    vdp_write_sprite_y(-32);
+    vdp_write_sprite_tile(0);
+    vdp_write_sprite_attr(0, 0, 0, 0);
 }
 
-
-static void draw_mouse(Workstation *wk, short x, short y)
+static void show_mouse(Workstation *wk, long x, long y)
 {
-    unsigned long state;
-    ULONG fb_start, fb_end;
-    ULONG dst_first, dst_last;
-    PIXEL *dst;
-    PIXEL *save_w;
-    const unsigned short *mask_start;
-    short w, h, shft;
-    unsigned long wrap;
+    SWORD pos_x;
+    SWORD pos_y;
+    short screen_width;
+    short screen_height;
 
-    if (!wk || !wk->screen.mfdb.address || wk->screen.wrap <= 0 || wk->screen.mfdb.height <= 0) {
-        mouse_save_state = 0;
-        return;
+    ensure_cursor_initialized();
+
+    pos_x = (SWORD)(x & 0xffffL);
+    pos_y = (SWORD)y;
+    if (wk) {
+        pos_x -= wk->mouse.hotspot.x;
+        pos_y -= wk->mouse.hotspot.y;
+        screen_width = wk->screen.mfdb.width;
+        screen_height = wk->screen.mfdb.height;
+        pos_x = scale_axis(pos_x, screen_width, GFXVGA_CURSOR_OVERLAY_WIDTH);
+        pos_y = scale_axis(pos_y, screen_height, GFXVGA_CURSOR_OVERLAY_HEIGHT);
     }
 
-    x -= wk->mouse.hotspot.x;
-    y -= wk->mouse.hotspot.y;
-    w = 16;
-    h = 16;
-
-    mask_start = mouse_data;
-    if (y < wk->screen.coordinates.min_y)
-    {
-        short ys;
-
-        ys = wk->screen.coordinates.min_y - y;
-        h -= ys;
-        y = wk->screen.coordinates.min_y;
-        mask_start += ys << 1;
-    }
-    if (y + h - 1 > wk->screen.coordinates.max_y)
-    {
-        h = wk->screen.coordinates.max_y - y + 1;
-    }
-
-    shft = 0;
-
-    if (x < wk->screen.coordinates.min_x)
-    {
-        short xs;
-
-        xs = wk->screen.coordinates.min_x - x;
-        w -= xs;
-        x = wk->screen.coordinates.min_x;
-        shft = xs;
-    }
-    if (x + w - 1 > wk->screen.coordinates.max_x)
-    {
-        w = wk->screen.coordinates.max_x - x + 1;
-    }
-
-    if (w <= 0 || h <= 0)
-    {
-        mouse_save_state = 0;
-        return;
-    }
-
-    wrap = wk->screen.wrap - w * PIXEL_SIZE;
-    wrap /= PIXEL_SIZE;     /* Change into pixel count */
-    dst = (PIXEL *) ((long) wk->screen.mfdb.address + y * (long) wk->screen.wrap + x * PIXEL_SIZE);
-
-    fb_start = (ULONG)wk->screen.mfdb.address;
-    fb_end = fb_start + (ULONG)wk->screen.wrap * (ULONG)wk->screen.mfdb.height;
-    dst_first = (ULONG)dst;
-    dst_last = dst_first + (ULONG)(h - 1) * (ULONG)wk->screen.wrap + (ULONG)(w - 1) * PIXEL_SIZE;
-    if ((dst_first & 1UL) || (dst_last & 1UL) || dst_first < fb_start || dst_last >= fb_end || dst_last < dst_first) {
-        mouse_save_state = 0;
-        return;
-    }
-
-    w--;
-    h--;
-    state = 0;
-    state |= (long) (w & 0x0f) << 28;
-    state |= (long) (h & 0x0f) << 24;
-    state |= (long) dst - (long) wk->screen.mfdb.address;
-    mouse_save_state = state;
-
-    save_w = mouse_saved;
-
-    {
-        unsigned short fg, bg;
-        short i;
-
-        do
-        {
-            bg = *mask_start++;
-            bg <<= shft;
-            fg = *mask_start++;
-            fg <<= shft;
-            i = w;
-            do
-            {
-                *save_w++ = *dst;
-                if (fg & 0x8000)
-                    *dst = mouse_foreground;
-                else if (bg & 0x8000)
-                    *dst = mouse_background;
-                dst++;
-                bg <<= 1;
-                fg <<= 1;
-            } while (--i >= 0);
-            dst += wrap;
-        } while (--h >= 0);
-    }
+    vdp_set_sprite_index(0);
+    vdp_write_sprite_x(pos_x);
+    vdp_write_sprite_y(pos_y);
+    vdp_write_sprite_tile(0);
+    vdp_write_sprite_attr(0, 0, 0, 0);
 }
-
 
 long CDECL c_mouse_draw(Workstation *wk, long x, long y, Mouse *mouse)
 {
-    unsigned long state;
-    long mouseparm = (long) mouse;
-    long result = 0;
+    long mouseparm = (long)mouse;
 
-    GFX_CP_ENTER(CP_MOUSE_DRAW);
-
-    if (!wk || !wk->screen.mfdb.address) {
-        GFX_CP_EXIT(CP_MOUSE_DRAW);
-        return -1;
-    }
-
-    if (mouse_draw_busy) {
-        GFX_CP_EXIT(CP_MOUSE_DRAW);
+    if (mouse_draw_busy)
         return 0;
-    }
     mouse_draw_busy = 1;
 
-    /* Need to mask x since it contains old operation in high bits (use that?) */
     x &= 0xffffL;
 
-    state = mouse_save_state;
-
-    if (mouseparm > 7)
-    {                                   /* New mouse shape */
-        long *pp = (long *)&wk->mouse.colour;
-
-        pp = (long *)&wk->mouse.colour;
-        if (*pp != mouse_old_colours)
-        {
-            Colour *global_palette;
-            PIXEL *realp;
-
-            mouse_old_colours = *pp;
-            /* c_get_colours(wk, *pp, &mouse_foreground, &mouse_background); */
-            global_palette = wk->screen.palette.colours;
-            if (global_palette) {
-                realp = (PIXEL *)&global_palette[wk->mouse.colour.foreground].real;
-                mouse_foreground = *realp;
-                realp = (PIXEL *)&global_palette[wk->mouse.colour.background].real;
-                mouse_background = *realp;
-            }
-        }
-
+    if (mouseparm > 7) {
+        ensure_cursor_initialized();
+        upload_cursor_palette(wk);
         if (!fix_shape && mouse && (((ULONG)mouse & 1UL) == 0) && ((ULONG)mouse >= 0x1000UL))
-            set_mouse_shape(mouse, mouse_data);
-        goto out;
+            set_mouse_shape(mouse);
+        mouse_draw_busy = 0;
+        return 0;
     }
 
-    if (state && !no_restore && (mouseparm == 0 || mouseparm == 2 || mouseparm == 3 || mouseparm == 4))
-    {                                   /* Move or Hide */
-        hide_mouse(wk);
+    switch (mouseparm) {
+    case 0:
+    case 3:
+    case 4:
+        show_mouse(wk, x, y);
+        break;
+
+    case 1:
+    case 2:
+    case 5:
+        hide_mouse();
+        break;
     }
 
-    if (mouseparm == 0 || mouseparm == 3 || mouseparm == 4)
-    {                                   /* Move or Show */
-        draw_mouse(wk, (short)x, (short)y);
-    }
-
-out:
     mouse_draw_busy = 0;
-    GFX_CP_EXIT(CP_MOUSE_DRAW);
-    return result;
+    return 0;
 }
