@@ -48,23 +48,36 @@ static void build_cursor_sprite(const unsigned short *mask, const unsigned short
     int row;
 
     for (row = 0; row < GFXVGA_CURSOR_HEIGHT; row++) {
-        unsigned short mask_bits = mask[row];
-        unsigned short data_bits = data[row];
+        int src_row = row * 2;
+        unsigned short mask_bits = 0;
+        unsigned short data_bits = 0;
         int group;
+
+        if (src_row < GFXVGA_CURSOR_HEIGHT) {
+            mask_bits = mask[src_row];
+            data_bits = data[src_row];
+        }
 
         for (group = 0; group < 4; group++) {
             unsigned short pixels[4];
             int pixel;
 
             for (pixel = 0; pixel < 4; pixel++) {
-                unsigned short bit = (unsigned short)(0x8000u >> (group * 4 + pixel));
+                int out_col = group * 4 + pixel;
 
-                if (data_bits & bit)
-                    pixels[pixel] = GFXVGA_CURSOR_FG_INDEX;
-                else if (mask_bits & bit)
-                    pixels[pixel] = GFXVGA_CURSOR_BG_INDEX;
-                else
+                if (out_col < 8 && src_row < GFXVGA_CURSOR_HEIGHT) {
+                    int src_col = out_col * 2;
+                    unsigned short bit = (unsigned short)(0x8000u >> src_col);
+
+                    if (data_bits & bit)
+                        pixels[pixel] = GFXVGA_CURSOR_FG_INDEX;
+                    else if (mask_bits & bit)
+                        pixels[pixel] = GFXVGA_CURSOR_BG_INDEX;
+                    else
+                        pixels[pixel] = 0;
+                } else {
                     pixels[pixel] = 0;
+                }
             }
 
             cursor_sprite_words[row * 4 + group] = pack_sprite_word(pixels[0], pixels[1], pixels[2], pixels[3]);
