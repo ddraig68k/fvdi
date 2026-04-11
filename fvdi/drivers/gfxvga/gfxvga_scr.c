@@ -26,14 +26,9 @@ c_write_pixel(Virtual *vwk, MFDB *dst, long x, long y, long colour)
     Workstation *wk;
     long offset;
 
-    GFX_CP_ENTER(CP_WRITE_PIXEL);
-
     if ((long)vwk & 1) {
-        GFX_CP_EXIT(CP_WRITE_PIXEL);
         return 0;
     }
-
-    DPRINTF(("c_write_pixel: x=%ld,y=%ld color=%ld\n\r", x, y, colour));
 
     wk = vwk->real_address;
     if (!dst || !dst->address || (dst->address == wk->screen.mfdb.address)) {
@@ -43,8 +38,6 @@ c_write_pixel(Virtual *vwk, MFDB *dst, long x, long y, long colour)
         offset = (dst->wdwidth * 2 * dst->bitplanes) * y + x * PIXEL_SIZE;
         *(PIXEL *)((long)dst->address + offset) = colour;
     }
-
-    GFX_CP_EXIT(CP_WRITE_PIXEL);
     return 1;
 }
 
@@ -55,10 +48,6 @@ c_read_pixel(Virtual *vwk, MFDB *src, long x, long y)
     long offset;
     unsigned PIXEL colour;
 
-    GFX_CP_ENTER(CP_READ_PIXEL);
-
-    DPRINTF(("c_read_pixel: x=%ld,y=%ld\n\r", x, y));
-
     wk = vwk->real_address;
     if (!src || !src->address || (src->address == wk->screen.mfdb.address)) {
         offset = wk->screen.wrap * y + x * PIXEL_SIZE;
@@ -67,7 +56,5 @@ c_read_pixel(Virtual *vwk, MFDB *src, long x, long y)
         offset = (src->wdwidth * 2 * src->bitplanes) * y + x * PIXEL_SIZE;
         colour = *(unsigned PIXEL *)((long)src->address + offset);
     }
-
-    GFX_CP_EXIT(CP_READ_PIXEL);
     return colour;
 }

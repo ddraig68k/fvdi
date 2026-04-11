@@ -6,7 +6,7 @@
 #include "driver.h"
 #include "../bitplane/bitplane.h"
 
-#define FVDI_DEBUG 1
+//#define FVDI_DEBUG 1
 #include "gfxvga.h"
 
 #define PIXEL		short
@@ -354,7 +354,7 @@ pan_backwards(PIXEL *src_addr, int src_line_add,
         dst_addr32 = (PIXEL_32 *)dst_addr;
         for (j = (w >> 1) - 1; j >= 0; j--)
         {
-            v32s = *--src_addr;
+            v32s = *--src_addr32;
             v32d = *--dst_addr32;
             DO_OP(v32);
             *dst_addr32 = v32;
@@ -375,6 +375,11 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
 {
     Workstation *wk;
     PIXEL *src_addr, *dst_addr, *dst_addr_fast;
+    ULONG src_base, dst_base;
+    ULONG src_pos0, dst_pos0;
+    ULONG src_first, src_last, dst_first, dst_last;
+    ULONG src_size_bytes, dst_size_bytes;
+    long src_max_w, src_max_h, dst_max_w, dst_max_h;
     int src_wrap, dst_wrap;
     int src_line_add, dst_line_add;
     unsigned long src_pos, dst_pos;
@@ -388,44 +393,32 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
         return 1;
     }
 
+    if (!vwk || ((long)vwk & 1)) {
+        GFX_CP_EXIT(CP_BLIT_AREA);
+        return -1;
+    }
+
     wk = vwk->real_address;
+    if (!wk || !wk->screen.mfdb.address) {
+        GFX_CP_EXIT(CP_BLIT_AREA);
+        return -1;
+    }
     my_kprintf("CP+09b 99\n");  /* After wk assignment */
 
     DPRINTF(("c_blit_area: entering op=%ld sx=%ld sy=%ld dx=%ld dy=%ld w=%ld h=%ld\n", operation, src_x, src_y, dst_x, dst_y, w, h));
+    my_kprintf("CP+09c 99\n");
 
-    /*
-     * Hardware-accelerated screen-to-screen copy via VDP 2D blitter.
-     * Conditions:
-     *   - operation 3 (plain copy) only - hardware has no ROP support
-     *   - both source and destination are the screen framebuffer
-     *   - no shadow buffer in use (shadow means source reads come from CPU RAM, not VRAM)
-     *   - geometry does not require a backward (bottom-to-top / right-to-left) copy,
-     *     which the hardware does not support: skip if dst is below src, or on same
-     *     row to the right of src (overlapping forward-copy hazard).
-     */
-    if (operation == 3
-        && !wk->screen.shadow.address
-        && is_screen(wk, src)
-        && is_screen(wk, dst)
-        && !(src_y < dst_y)
-        && !(src_y == dst_y && src_x < dst_x)) {
-        /* Compute absolute VDP word addresses to avoid relying on vdp_copy_2d
-         * internal coordinate arithmetic, which uses UWORD and can overflow
-         * with -mshort when (y * width) > 65535. Pass x=0,y=0 as offsets. */
-        ULONG screen_width = (ULONG)wk->screen.mfdb.width;
-        ULONG fb_word = ((ULONG)wk->screen.mfdb.address - (ULONG)g_vdp_memory_base) >> 1;
-        ULONG src_word = fb_word + (ULONG)src_y * screen_width + (ULONG)src_x;
-        ULONG dst_word = fb_word + (ULONG)dst_y * screen_width + (ULONG)dst_x;
-        vdp_copy_2d(src_word, dst_word,
-                    0, 0,
-                    0, 0,
-                    (UWORD)w, (UWORD)h,
-                    (UWORD)screen_width);
+    if (src && ((ULONG)src & 1UL)) {
+        my_kprintf("CP+09u srcmfdb=%lX\n", (ULONG)src);
         GFX_CP_EXIT(CP_BLIT_AREA);
-        return 1;
+        return -1;
+    }
+    if (dst && ((ULONG)dst & 1UL)) {
+        my_kprintf("CP+09u dstmfdb=%lX\n", (ULONG)dst);
+        GFX_CP_EXIT(CP_BLIT_AREA);
+        return -1;
     }
 
-    my_kprintf("CP+09c 99\n");  /* After VDP hardware fast-path check */
     DPRINTF(("c_blit_area called: sx=%ld,sy=%ld,dx=%ld,dy=%ld w=%ld,h=%ld\n\r", src_x, src_y, dst_x, dst_y, w, h));
     DPRINTF(("c_blit_area: src MFDB addr=%lX w=%d, h=%d, wdwid=%d, std=%d, bitpl=%d\n\r",
              src ? (ULONG)src->address : 0UL,
@@ -446,29 +439,119 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
         src_wrap = wk->screen.wrap;
         if (!(src_addr = wk->screen.shadow.address))
             src_addr = wk->screen.mfdb.address;
+        src_max_w = wk->screen.mfdb.width;
+        src_max_h = wk->screen.mfdb.height;
     } else {
         src_wrap = (long)src->wdwidth * 2 * src->bitplanes;
         src_addr = src->address;
+        src_max_w = src->width;
+        src_max_h = src->height;
     }
-    src_pos = (short)src_y * (long)src_wrap + src_x * PIXEL_SIZE;
-    src_line_add = src_wrap - w * PIXEL_SIZE;
 
     to_screen = 0;
     if (!dst || !dst->address || (dst->address == wk->screen.mfdb.address)) {       /* To screen? */
         dst_wrap = wk->screen.wrap;
         dst_addr = wk->screen.mfdb.address;
+        dst_max_w = wk->screen.mfdb.width;
+        dst_max_h = wk->screen.mfdb.height;
         to_screen = 1;
     } else {
         dst_wrap = (long)dst->wdwidth * 2 * dst->bitplanes;
         dst_addr = dst->address;
+        dst_max_w = dst->width;
+        dst_max_h = dst->height;
     }
-    dst_pos = (short)dst_y * (long)dst_wrap + dst_x * PIXEL_SIZE;
+
+    /* Containment mode: only accelerate direct screen-to-screen blits.
+     * Non-screen MFDB traffic is delegated to fallback implementation. */
+    if ((src && src->address && src->address != wk->screen.mfdb.address) ||
+        (dst && dst->address && dst->address != wk->screen.mfdb.address)) {
+        my_kprintf("CP+09q\n");
+        GFX_CP_EXIT(CP_BLIT_AREA);
+        return -1;
+    }
+
+    if (src_wrap <= 0 || dst_wrap <= 0 || (src_wrap & 1) || (dst_wrap & 1)) {
+        my_kprintf("CP+09u wrap s=%d d=%d\n", src_wrap, dst_wrap);
+        GFX_CP_EXIT(CP_BLIT_AREA);
+        return -1;
+    }
+
+    if (src_x < 0) {
+        dst_x -= src_x;
+        w += src_x;
+        src_x = 0;
+    }
+    if (src_y < 0) {
+        dst_y -= src_y;
+        h += src_y;
+        src_y = 0;
+    }
+    if (dst_x < 0) {
+        src_x -= dst_x;
+        w += dst_x;
+        dst_x = 0;
+    }
+    if (dst_y < 0) {
+        src_y -= dst_y;
+        h += dst_y;
+        dst_y = 0;
+    }
+    if (src_x + w > src_max_w) {
+        w = src_max_w - src_x;
+    }
+    if (src_y + h > src_max_h) {
+        h = src_max_h - src_y;
+    }
+    if (dst_x + w > dst_max_w) {
+        w = dst_max_w - dst_x;
+    }
+    if (dst_y + h > dst_max_h) {
+        h = dst_max_h - dst_y;
+    }
+    if (w <= 0 || h <= 0) {
+        GFX_CP_EXIT(CP_BLIT_AREA);
+        return 1;
+    }
+
+    src_base = (ULONG)src_addr;
+    dst_base = (ULONG)dst_addr;
+    if ((src_base & 1UL) || (dst_base & 1UL)) {
+        my_kprintf("CP+09u align s=%lX d=%lX\n", src_base, dst_base);
+        GFX_CP_EXIT(CP_BLIT_AREA);
+        return -1;
+    }
+
+    src_pos0 = (ULONG)src_y * (ULONG)src_wrap + (ULONG)src_x * PIXEL_SIZE;
+    dst_pos0 = (ULONG)dst_y * (ULONG)dst_wrap + (ULONG)dst_x * PIXEL_SIZE;
+    src_size_bytes = (ULONG)src_wrap * (ULONG)src_max_h;
+    dst_size_bytes = (ULONG)dst_wrap * (ULONG)dst_max_h;
+    src_first = src_base + src_pos0;
+    src_last = src_first + (ULONG)(h - 1) * (ULONG)src_wrap + (ULONG)(w - 1) * PIXEL_SIZE;
+    dst_first = dst_base + dst_pos0;
+    dst_last = dst_first + (ULONG)(h - 1) * (ULONG)dst_wrap + (ULONG)(w - 1) * PIXEL_SIZE;
+    if ((src_first & 1UL) || (src_last & 1UL) ||
+        src_last < src_first || src_first < src_base || src_last >= (src_base + src_size_bytes)) {
+        my_kprintf("CP+09u src=%lX..%lX lim=%lX..%lX\n", src_first, src_last, src_base, src_base + src_size_bytes);
+        GFX_CP_EXIT(CP_BLIT_AREA);
+        return -1;
+    }
+    if ((dst_first & 1UL) || (dst_last & 1UL) ||
+        dst_last < dst_first || dst_first < dst_base || dst_last >= (dst_base + dst_size_bytes)) {
+        my_kprintf("CP+09u dst=%lX..%lX lim=%lX..%lX\n", dst_first, dst_last, dst_base, dst_base + dst_size_bytes);
+        GFX_CP_EXIT(CP_BLIT_AREA);
+        return -1;
+    }
+
+    src_pos = src_pos0;
+    dst_pos = dst_pos0;
+    src_line_add = src_wrap - w * PIXEL_SIZE;
     dst_line_add = dst_wrap - w * PIXEL_SIZE;
 
     if (src_y < dst_y) {
-        src_pos += (short)(h - 1) * (long)src_wrap;
+        src_pos += (ULONG)(h - 1) * (ULONG)src_wrap;
         src_line_add -= src_wrap * 2;
-        dst_pos += (short)(h - 1) * (long)dst_wrap;
+        dst_pos += (ULONG)(h - 1) * (ULONG)dst_wrap;
         dst_line_add -= dst_wrap * 2;
     }
 
@@ -476,6 +559,11 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     dst_addr += dst_pos / PIXEL_SIZE;
     src_line_add /= PIXEL_SIZE;     /* Change into pixel count */
     dst_line_add /= PIXEL_SIZE;
+    if (((ULONG)src_addr & 1UL) || ((ULONG)dst_addr & 1UL)) {
+        my_kprintf("CP+09u ptr s=%lX d=%lX\n", (ULONG)src_addr, (ULONG)dst_addr);
+        GFX_CP_EXIT(CP_BLIT_AREA);
+        return -1;
+    }
     my_kprintf("CP+09d 99\n");  /* After address arithmetic */
 
     dst_addr_fast = wk->screen.shadow.address;  /* May not really be to screen at all, but... */
@@ -486,14 +574,6 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
         src_line_add += 2 * w;
         dst_line_add += 2 * w;
         switch(operation) {
-        case 3:
-            DPRINTF(("c_blit_area: mode=pen_backcopy saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
-            pan_backwards_copy(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h);
-            break;
-        case 7:
-            DPRINTF(("c_blit_area: mode=pen_back_or saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
-            pan_backwards_or(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h);
-            break;
         default:
             DPRINTF(("c_blit_area: mode=pen_back saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
             pan_backwards(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h, operation);
@@ -501,14 +581,6 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
         }
     } else {
         switch(operation) {
-        case 3:
-            DPRINTF(("c_blit_area: mode=blit_copy saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
-            blit_copy(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h);
-            break;
-        case 7:
-            DPRINTF(("c_blit_area: mode=blit_or saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
-            blit_or(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h);
-            break;
         default:
             DPRINTF(("c_blit_area: mode=blit_default saddr=%lx,sline=%d,daddr=%lX,dline=%d srx=%ld,w=%ld,h=%ld\n\r", (ULONG)src_addr, src_line_add, (ULONG)dst_addr, dst_line_add, src_x, w, h));
             blit_16b(src_addr, src_line_add, dst_addr, 0, dst_line_add, w, h, operation);

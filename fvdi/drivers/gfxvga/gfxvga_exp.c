@@ -4,13 +4,22 @@
 #include "driver.h"
 #include "../bitplane/bitplane.h"
 
-#define FVDI_DEBUG 1
+//#define FVDI_DEBUG 1
 #include "gfxvga.h"
 
 #define PIXEL		short
 #define PIXEL_SIZE	sizeof(PIXEL)
 
 #define WORD_BITS 16
+
+static ULONG expand_src_guard_lo;
+static ULONG expand_src_guard_hi;
+static ULONG expand_dst_guard_lo;
+static ULONG expand_dst_guard_hi;
+static int expand_guard_src_words;
+static int expand_guard_width;
+static int expand_guard_fault;
+static int expand_busy;
 
 static void replace_aligned(short *src_addr, int src_line_add, PIXEL *dst_addr, int dst_line_add, int w, int h, PIXEL foreground, PIXEL background)
 {
@@ -240,6 +249,23 @@ static void replace(short *src_addr, int src_line_add, PIXEL *dst_addr, PIXEL *d
     for(i = h - 1; i >= 0; i--) {
         short *src = src_addr;
         PIXEL *dst = dst_addr;
+        ULONG src_row_first;
+        ULONG src_row_last;
+        ULONG dst_row_first;
+        ULONG dst_row_last;
+
+        src_row_first = (ULONG)src;
+        src_row_last = src_row_first + (ULONG)(expand_guard_src_words - 1) * 2UL;
+        dst_row_first = (ULONG)dst;
+        dst_row_last = dst_row_first + (ULONG)(expand_guard_width - 1) * PIXEL_SIZE;
+        if ((src_row_first & 1UL) || (src_row_last & 1UL) ||
+            (dst_row_first & 1UL) || (dst_row_last & 1UL) ||
+            src_row_first < expand_src_guard_lo || src_row_last > expand_src_guard_hi ||
+            dst_row_first < expand_dst_guard_lo || dst_row_last > expand_dst_guard_hi) {
+            my_kprintf("CP+07p r=%d s=%lX..%lX d=%lX..%lX\n", h - 1 - i, src_row_first, src_row_last, dst_row_first, dst_row_last);
+            expand_guard_fault = 1;
+            return;
+        }
 
         expand_word = (unsigned short)*src++;
         expand_word <<= shift;
@@ -280,6 +306,23 @@ static void transparent(short *src_addr, int src_line_add, PIXEL *dst_addr, PIXE
     for(i = h - 1; i >= 0; i--) {
         short *src = src_addr;
         PIXEL *dst = dst_addr;
+        ULONG src_row_first;
+        ULONG src_row_last;
+        ULONG dst_row_first;
+        ULONG dst_row_last;
+
+        src_row_first = (ULONG)src;
+        src_row_last = src_row_first + (ULONG)(expand_guard_src_words - 1) * 2UL;
+        dst_row_first = (ULONG)dst;
+        dst_row_last = dst_row_first + (ULONG)(expand_guard_width - 1) * PIXEL_SIZE;
+        if ((src_row_first & 1UL) || (src_row_last & 1UL) ||
+            (dst_row_first & 1UL) || (dst_row_last & 1UL) ||
+            src_row_first < expand_src_guard_lo || src_row_last > expand_src_guard_hi ||
+            dst_row_first < expand_dst_guard_lo || dst_row_last > expand_dst_guard_hi) {
+            my_kprintf("CP+07p r=%d s=%lX..%lX d=%lX..%lX\n", h - 1 - i, src_row_first, src_row_last, dst_row_first, dst_row_last);
+            expand_guard_fault = 1;
+            return;
+        }
 
         expand_word = (unsigned short)*src++;
         expand_word <<= shift;
@@ -321,6 +364,23 @@ static void xor(short *src_addr, int src_line_add, PIXEL *dst_addr, PIXEL *dst_a
     for(i = h - 1; i >= 0; i--) {
         short *src = src_addr;
         PIXEL *dst = dst_addr;
+        ULONG src_row_first;
+        ULONG src_row_last;
+        ULONG dst_row_first;
+        ULONG dst_row_last;
+
+        src_row_first = (ULONG)src;
+        src_row_last = src_row_first + (ULONG)(expand_guard_src_words - 1) * 2UL;
+        dst_row_first = (ULONG)dst;
+        dst_row_last = dst_row_first + (ULONG)(expand_guard_width - 1) * PIXEL_SIZE;
+        if ((src_row_first & 1UL) || (src_row_last & 1UL) ||
+            (dst_row_first & 1UL) || (dst_row_last & 1UL) ||
+            src_row_first < expand_src_guard_lo || src_row_last > expand_src_guard_hi ||
+            dst_row_first < expand_dst_guard_lo || dst_row_last > expand_dst_guard_hi) {
+            my_kprintf("CP+07p r=%d s=%lX..%lX d=%lX..%lX\n", h - 1 - i, src_row_first, src_row_last, dst_row_first, dst_row_last);
+            expand_guard_fault = 1;
+            return;
+        }
 
         expand_word = (unsigned short)*src++;
         expand_word <<= shift;
@@ -362,6 +422,23 @@ static void revtransp(short *src_addr, int src_line_add, PIXEL *dst_addr, PIXEL 
     for(i = h - 1; i >= 0; i--) {
         short *src = src_addr;
         PIXEL *dst = dst_addr;
+        ULONG src_row_first;
+        ULONG src_row_last;
+        ULONG dst_row_first;
+        ULONG dst_row_last;
+
+        src_row_first = (ULONG)src;
+        src_row_last = src_row_first + (ULONG)(expand_guard_src_words - 1) * 2UL;
+        dst_row_first = (ULONG)dst;
+        dst_row_last = dst_row_first + (ULONG)(expand_guard_width - 1) * PIXEL_SIZE;
+        if ((src_row_first & 1UL) || (src_row_last & 1UL) ||
+            (dst_row_first & 1UL) || (dst_row_last & 1UL) ||
+            src_row_first < expand_src_guard_lo || src_row_last > expand_src_guard_hi ||
+            dst_row_first < expand_dst_guard_lo || dst_row_last > expand_dst_guard_hi) {
+            my_kprintf("CP+07p r=%d s=%lX..%lX d=%lX..%lX\n", h - 1 - i, src_row_first, src_row_last, dst_row_first, dst_row_last);
+            expand_guard_fault = 1;
+            return;
+        }
 
         expand_word = (unsigned short)*src++;
         expand_word <<= shift;
@@ -398,10 +475,13 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
     unsigned long ret_entry, ret_exit;
     ULONG src_base;
     ULONG dst_base;
+    ULONG dst_total_bytes;
     int src_wrap, dst_wrap;
     int src_line_add, dst_line_add;
     int src_words_used;
     unsigned long src_pos, dst_pos;
+    ULONG src_total_bytes;
+    ULONG src_first, src_last;
     ULONG dst_first, dst_last;
     ULONG fb_start, fb_end;
     ULONG vram_start, vram_end;
@@ -409,14 +489,24 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
     long dst_max_w, dst_max_h;
     int to_screen;
     long src_bits_per_row;
+    int locked;
 
     __asm__ volatile("move.l %%sp,%0" : "=r"(sp_entry));
     ret_entry = (unsigned long)__builtin_return_address(0);
     my_kprintf("CP+07e ra=%lX sp=%lX\n", ret_entry, sp_entry);
+    locked = 0;
 
     GFX_CP_ENTER(CP_EXPAND_AREA);
 
     if (!vwk || ((long)vwk & 1) || !src || !src->address || w <= 0 || h <= 0) {
+        GFX_CP_EXIT(CP_EXPAND_AREA);
+        return -1;
+    }
+
+    /* Temporary containment: crashes consistently cluster around CP+07t.
+     * Route transparent expand to fallback until root cause is identified. */
+    if (operation == 2) {
+        my_kprintf("CP+07z\n");
         GFX_CP_EXIT(CP_EXPAND_AREA);
         return -1;
     }
@@ -467,6 +557,14 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
         dst_max_h = dst->height;
     }
 
+    /* Containment mode: only accelerate writes directly to the visible framebuffer.
+     * Off-screen MFDB handling has been implicated in random corruption traces. */
+    if (!to_screen) {
+        my_kprintf("CP+07q\n");
+        GFX_CP_EXIT(CP_EXPAND_AREA);
+        return -1;
+    }
+
     src_bits_per_row = (long)src->wdwidth * 16;
     if (src_x + w > src_max_w) {
         w = src_max_w - src_x;
@@ -498,17 +596,38 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
     }
 
     src_wrap = (long)src->wdwidth * 2;      /* Always monochrome */
+    if (src->wdwidth <= 0 || src->height <= 0 || src_wrap <= 0 || (src_wrap & 1)) {
+        my_kprintf("CP+07u badsrc wd=%d h=%d wrap=%d\n", src->wdwidth, src->height, src_wrap);
+        GFX_CP_EXIT(CP_EXPAND_AREA);
+        return -1;
+    }
     src_addr = src->address;
-    src_pos = (short)src_y * (long)src_wrap + (src_x >> 4) * 2;
+    src_pos = (ULONG)src_y * (ULONG)src_wrap + (ULONG)(src_x >> 4) * 2UL;
     src_words_used = ((src_x & 0x000f) + w + 15) >> 4;
     if (src_words_used <= 0 || src_words_used > src->wdwidth) {
         DPRINTF(("c_expand_area: invalid src_words_used=%d wdwid=%d src_x=%ld w=%ld\n\r", src_words_used, src->wdwidth, src_x, w));
         GFX_CP_EXIT(CP_EXPAND_AREA);
         return -1;
     }
+    src_total_bytes = (ULONG)(unsigned short)src->height * (ULONG)src_wrap;
+    src_first = src_base + src_pos;
+    src_last = src_first + (ULONG)(h - 1) * (ULONG)src_wrap + (ULONG)(src_words_used - 1) * 2UL;
+    if ((src_first & 1UL) || (src_last & 1UL) ||
+        src_last < src_first || src_first < src_base ||
+        src_last >= (src_base + src_total_bytes)) {
+        my_kprintf("CP+07u s=%lX..%lX lim=%lX..%lX\n", src_first, src_last, src_base, src_base + src_total_bytes);
+        GFX_CP_EXIT(CP_EXPAND_AREA);
+        return -1;
+    }
     src_line_add = src_wrap - src_words_used * 2;
 
-    dst_pos = (short)dst_y * (long)dst_wrap + dst_x * PIXEL_SIZE;
+    if (dst_wrap <= 0 || (dst_wrap & 1)) {
+        my_kprintf("CP+07n wrap=%d dbase=%lX\n", dst_wrap, dst_base);
+        GFX_CP_EXIT(CP_EXPAND_AREA);
+        return -1;
+    }
+
+    dst_pos = (ULONG)dst_y * (ULONG)dst_wrap + (ULONG)dst_x * PIXEL_SIZE;
     dst_line_add = dst_wrap - w * PIXEL_SIZE;
 
     src_addr += src_pos / 2;
@@ -516,14 +635,23 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
     src_line_add /= 2;
     dst_line_add /= PIXEL_SIZE;         /* Change into pixel count */
 
+    dst_first = (ULONG)dst_addr;
+    dst_last = dst_first + (ULONG)(h - 1) * (ULONG)dst_wrap + (ULONG)(w - 1) * PIXEL_SIZE;
+    dst_total_bytes = (ULONG)dst_wrap * (ULONG)dst_max_h;
+    if ((dst_first & 1UL) || (dst_last & 1UL) ||
+        dst_last < dst_first || dst_first < dst_base ||
+        dst_last >= (dst_base + dst_total_bytes)) {
+        my_kprintf("CP+07n d=%lX..%lX lim=%lX..%lX\n", dst_first, dst_last, dst_base, dst_base + dst_total_bytes);
+        GFX_CP_EXIT(CP_EXPAND_AREA);
+        return -1;
+    }
+
     if (to_screen) {
         fb_start = (ULONG)wk->screen.mfdb.address;
         fb_end = fb_start + (ULONG)wk->screen.wrap * (ULONG)wk->screen.mfdb.height;
         vram_start = (ULONG)g_vdp_memory_base;
         vram_end = vram_start + 0x00100000UL;
-        dst_first = (ULONG)dst_addr;
-        dst_last = dst_first + (ULONG)(h - 1) * (ULONG)dst_wrap + (ULONG)(w - 1) * PIXEL_SIZE;
-        if (dst_first < fb_start || dst_last >= fb_end || dst_last < dst_first) {
+        if (dst_first < fb_start || dst_last >= fb_end) {
             my_kprintf("CP+07m d=%lX..%lX fb=%lX..%lX\n", dst_first, dst_last, fb_start, fb_end);
             GFX_CP_EXIT(CP_EXPAND_AREA);
             return -1;
@@ -535,7 +663,22 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
         }
     }
 
+    if (expand_busy) {
+        my_kprintf("CP+07b\n");
+        GFX_CP_EXIT(CP_EXPAND_AREA);
+        return -1;
+    }
+    expand_busy = 1;
+    locked = 1;
+
     dst_addr_fast = wk->screen.shadow.address;  /* May not really be to screen at all, but... */
+    expand_src_guard_lo = src_first;
+    expand_src_guard_hi = src_last;
+    expand_dst_guard_lo = dst_first;
+    expand_dst_guard_hi = dst_last;
+    expand_guard_src_words = src_words_used;
+    expand_guard_width = (int)w;
+    expand_guard_fault = 0;
 
     my_kprintf("CP+07a\n");
 
@@ -564,23 +707,49 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
     case 1:             /* Replace */
         my_kprintf("CP+07r\n");
         replace(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
+        if (expand_guard_fault) {
+            if (locked)
+                expand_busy = 0;
+            GFX_CP_EXIT(CP_EXPAND_AREA);
+            return -1;
+        }
         break;
     case 2:             /* Transparent */
         my_kprintf("CP+07t\n");
         transparent(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
+        if (expand_guard_fault) {
+            if (locked)
+                expand_busy = 0;
+            GFX_CP_EXIT(CP_EXPAND_AREA);
+            return -1;
+        }
         break;
     case 3:             /* XOR */
         my_kprintf("CP+07x\n");
         xor(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
+        if (expand_guard_fault) {
+            if (locked)
+                expand_busy = 0;
+            GFX_CP_EXIT(CP_EXPAND_AREA);
+            return -1;
+        }
         break;
     case 4:             /* Reverse transparent */
         my_kprintf("CP+07v\n");
         revtransp(src_addr, src_line_add, dst_addr, 0, dst_line_add, src_x, w, h, foreground, background);
+        if (expand_guard_fault) {
+            if (locked)
+                expand_busy = 0;
+            GFX_CP_EXIT(CP_EXPAND_AREA);
+            return -1;
+        }
         break;
     }
 
     if (canary != 0x7B91C42DUL) {
         my_kprintf("CP+07k\n");
+        if (locked)
+            expand_busy = 0;
         GFX_CP_EXIT(CP_EXPAND_AREA);
         return -1;
     }
@@ -591,6 +760,8 @@ long CDECL c_expand_area(Virtual *vwk, MFDB *src, long src_x, long src_y, MFDB *
     if (sp_entry != sp_exit || ret_entry != ret_exit) {
         my_kprintf("CP+07s sp=%lX->%lX ra=%lX->%lX\n", sp_entry, sp_exit, ret_entry, ret_exit);
     }
+    if (locked)
+        expand_busy = 0;
 
     (void) to_screen;
     (void) dst_addr_fast;

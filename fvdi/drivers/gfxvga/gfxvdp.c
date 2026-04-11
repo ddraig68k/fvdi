@@ -245,7 +245,7 @@ void vdp_draw_fill_rect(UWORD x0, UWORD y0, UWORD x1, UWORD y1)
     VDP_REG_WRITE(REG_PARAM_DATA1, y0);
     VDP_REG_WRITE(REG_PARAM_DATA2, x1);
     VDP_REG_WRITE(REG_PARAM_DATA3, y1);
-    vdp_wait_busy();
+	vdp_wait_busy();
  	VDP_REG_WRITE(REG_COMMAND, CMD_FILL_RECT);
 }
 
@@ -257,7 +257,7 @@ void vdp_draw_fill_tri(UWORD x0, UWORD y0, UWORD x1, UWORD y1,  UWORD x2, UWORD 
     VDP_REG_WRITE(REG_PARAM_DATA3, y1);
     VDP_REG_WRITE(REG_PARAM_DATA4, x2);
     VDP_REG_WRITE(REG_PARAM_DATA5, y2);
-    vdp_wait_busy();
+	vdp_wait_busy();
  	VDP_REG_WRITE(REG_COMMAND, CMD_FILL_TRIANGLE);
 }
 
@@ -267,7 +267,7 @@ void vdp_draw_line(UWORD x0, UWORD y0, UWORD x1, UWORD y1)
     VDP_REG_WRITE(REG_PARAM_DATA1, y0);
     VDP_REG_WRITE(REG_PARAM_DATA2, x1);
     VDP_REG_WRITE(REG_PARAM_DATA3, y1);
-    vdp_wait_busy();
+	vdp_wait_busy();
 	VDP_REG_WRITE(REG_COMMAND, CMD_DRAW_LINE);
 }
 
@@ -275,7 +275,7 @@ void vdp_draw_hline(UWORD x, UWORD y)
 {
     VDP_REG_WRITE(REG_PARAM_DATA0, x);
     VDP_REG_WRITE(REG_PARAM_DATA1, y);
-    vdp_wait_busy();
+	vdp_wait_busy();
 	VDP_REG_WRITE(REG_COMMAND, CMD_DRAW_HLINE);
 }
 
@@ -283,7 +283,7 @@ void vdp_draw_vline(UWORD x, UWORD y)
 {
     VDP_REG_WRITE(REG_PARAM_DATA0, x);
     VDP_REG_WRITE(REG_PARAM_DATA1, y);
-    vdp_wait_busy();
+	vdp_wait_busy();
 	VDP_REG_WRITE(REG_COMMAND, CMD_DRAW_VLINE);
 }
 
