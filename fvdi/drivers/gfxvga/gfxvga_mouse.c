@@ -3,20 +3,27 @@
 #include "gfxvga.h"
 
 #include "fvdi.h"
-#include "driver.h"
 #include "../bitplane/bitplane.h"
 
-#define GFXVGA_CURSOR_SPRITE_ADDR 0x001FF000UL
 #define GFXVGA_CURSOR_WIDTH 16
 #define GFXVGA_CURSOR_HEIGHT 16
-#define GFXVGA_CURSOR_BYTES_PER_ROW 8
-#define GFXVGA_CURSOR_SPRITE_BYTES (GFXVGA_CURSOR_HEIGHT * GFXVGA_CURSOR_BYTES_PER_ROW)
-#define GFXVGA_CURSOR_PALETTE_BANK 1
-#define GFXVGA_CURSOR_PALETTE_BASE (GFXVGA_CURSOR_PALETTE_BANK * 256)
-#define GFXVGA_CURSOR_BG_INDEX 1
-#define GFXVGA_CURSOR_FG_INDEX 2
-#define GFXVGA_CURSOR_OVERLAY_WIDTH 320
-#define GFXVGA_CURSOR_OVERLAY_HEIGHT 240
+#define GFXVGA_HW_CURSOR_WIDTH 32
+#define GFXVGA_HW_CURSOR_HEIGHT 32
+#define GFXVGA_CURSOR_WORDS_PER_ROW 4
+#define GFXVGA_CURSOR_TOTAL_WORDS (GFXVGA_HW_CURSOR_HEIGHT * GFXVGA_CURSOR_WORDS_PER_ROW)
+#define GFXVGA_CURSOR_MAX_X 639
+#define GFXVGA_CURSOR_MAX_Y 479
+
+/*
+ * Hardware cursor format contract (matches CursorSprite.vhd):
+ * - Surface: 32x32 pixels, 2bpp packed.
+ * - Storage: 128 x 16-bit words (4 words per row).
+ * - Each word encodes 8 pixels as [15:14]=px0 .. [1:0]=px7.
+ * - Pixel index mapping: 00 transparent, 01 background, 11 foreground.
+ *
+ * fVDI cursor input is 16x16 mask/data. We map it 1:1 into the top-left
+ * 16x16 region of the 32x32 hardware surface; the rest stays transparent.
+ */
 
 static volatile short mouse_draw_busy = 0;
 static short cursor_initialized = 0;
@@ -33,72 +40,40 @@ static unsigned short cursor_data[GFXVGA_CURSOR_HEIGHT] = {
     0x0000, 0x0180, 0x03c0, 0x07e0,
     0x0ff0, 0x1ff8, 0x3ffc, 0x0000
 };
-static unsigned short cursor_sprite_words[GFXVGA_CURSOR_SPRITE_BYTES / sizeof(unsigned short)];
+static unsigned short cursor_words[GFXVGA_CURSOR_TOTAL_WORDS];
 
-static unsigned short pack_sprite_word(unsigned short p0,
-                                       unsigned short p1,
-                                       unsigned short p2,
-                                       unsigned short p3)
-{
-    return (unsigned short)((p0 << 12) | (p1 << 8) | (p2 << 4) | p3);
-}
-
-static void build_cursor_sprite(const unsigned short *mask, const unsigned short *data)
+static void build_cursor_data(const unsigned short *mask, const unsigned short *data)
 {
     int row;
 
+    for (row = 0; row < GFXVGA_CURSOR_TOTAL_WORDS; row++)
+        cursor_words[row] = 0;
+
     for (row = 0; row < GFXVGA_CURSOR_HEIGHT; row++) {
-        int src_row = row * 2;
-        unsigned short mask_bits = 0;
-        unsigned short data_bits = 0;
-        int group;
+        unsigned short mask_bits = mask[row];
+        unsigned short data_bits = data[row];
+        int col;
 
-        if (src_row < GFXVGA_CURSOR_HEIGHT) {
-            mask_bits = mask[src_row];
-            data_bits = data[src_row];
-        }
+        for (col = 0; col < GFXVGA_CURSOR_WIDTH; col++) {
+            unsigned short bit = (unsigned short)(0x8000u >> col);
+            unsigned short idx;
+            int word_index;
+            int pixel_in_word;
+            int shift;
 
-        for (group = 0; group < 4; group++) {
-            unsigned short pixels[4];
-            int pixel;
+            if (data_bits & bit)
+                idx = 3;
+            else if (mask_bits & bit)
+                idx = 1;
+            else
+                idx = 0;
 
-            for (pixel = 0; pixel < 4; pixel++) {
-                int out_col = group * 4 + pixel;
-
-                if (out_col < 8 && src_row < GFXVGA_CURSOR_HEIGHT) {
-                    int src_col = out_col * 2;
-                    unsigned short bit = (unsigned short)(0x8000u >> src_col);
-
-                    if (data_bits & bit)
-                        pixels[pixel] = GFXVGA_CURSOR_FG_INDEX;
-                    else if (mask_bits & bit)
-                        pixels[pixel] = GFXVGA_CURSOR_BG_INDEX;
-                    else
-                        pixels[pixel] = 0;
-                } else {
-                    pixels[pixel] = 0;
-                }
-            }
-
-            cursor_sprite_words[row * 4 + group] = pack_sprite_word(pixels[0], pixels[1], pixels[2], pixels[3]);
+            word_index = row * GFXVGA_CURSOR_WORDS_PER_ROW + (col >> 3);
+            pixel_in_word = col & 7;
+            shift = 14 - (pixel_in_word * 2);
+            cursor_words[word_index] |= (unsigned short)(idx << shift);
         }
     }
-}
-
-static short scale_axis(short value, short src_extent, short dst_extent)
-{
-    long scaled;
-
-    if (src_extent <= 0)
-        return value;
-
-    scaled = (long)value * (long)dst_extent;
-    if (scaled >= 0)
-        scaled += src_extent / 2;
-    else
-        scaled -= src_extent / 2;
-
-    return (short)(scaled / src_extent);
 }
 
 static int clamp_palette_index(int idx, int max_idx)
@@ -140,19 +115,17 @@ static void upload_cursor_palette(Workstation *wk)
     if (colour_state == cursor_colour_state)
         return;
 
-    VDP_REG_WRITE(REG_PALETTE_IDX, GFXVGA_CURSOR_PALETTE_BASE);
-    VDP_REG_WRITE(REG_PALETTE_DATA, 0x0000);
-    VDP_REG_WRITE(REG_PALETTE_DATA, background);
-    VDP_REG_WRITE(REG_PALETTE_DATA, foreground);
+    vdp_hw_cursor_colors(background, foreground, foreground);
     cursor_colour_state = colour_state;
 }
 
 static void upload_cursor_shape(void)
 {
-    vdp_sprite_data_addr(GFXVGA_CURSOR_SPRITE_ADDR);
-    vdp_vram_write(GFXVGA_CURSOR_SPRITE_ADDR, cursor_sprite_words, GFXVGA_CURSOR_SPRITE_BYTES);
-    vdp_set_sprite_index(0);
-    vdp_write_sprite_tile(0);
+    int i;
+
+    vdp_hw_cursor_addr(0);
+    for (i = 0; i < GFXVGA_CURSOR_TOTAL_WORDS; i++)
+        vdp_hw_cursor_data(cursor_words[i]);
 }
 
 static void ensure_cursor_initialized(void)
@@ -160,16 +133,11 @@ static void ensure_cursor_initialized(void)
     if (cursor_initialized)
         return;
 
-    build_cursor_sprite(cursor_mask, cursor_data);
+    build_cursor_data(cursor_mask, cursor_data);
     upload_cursor_shape();
     upload_cursor_palette(NULL);
-    vdp_set_control(vdp_get_control() | SPRITE_ENABLE);
-    vdp_set_sprite_palette(GFXVGA_CURSOR_PALETTE_BANK);
-    vdp_set_sprite_index(0);
-    vdp_write_sprite_x(-32);
-    vdp_write_sprite_y(-32);
-    vdp_write_sprite_tile(0);
-    vdp_write_sprite_attr(0, 0, 0, 0);
+    vdp_hw_cursor_pos(0, 0);
+    vdp_hw_cursor_enable(0);
     cursor_initialized = 1;
 }
 
@@ -185,45 +153,42 @@ static void set_mouse_shape(Mouse *mouse)
         cursor_data[i] = (unsigned short)mouse->data[i];
     }
 
-    build_cursor_sprite(cursor_mask, cursor_data);
+    build_cursor_data(cursor_mask, cursor_data);
     upload_cursor_shape();
 }
 
 static void hide_mouse(void)
 {
     ensure_cursor_initialized();
-    vdp_set_sprite_index(0);
-    vdp_write_sprite_x(-32);
-    vdp_write_sprite_y(-32);
-    vdp_write_sprite_tile(0);
-    vdp_write_sprite_attr(0, 0, 0, 0);
+    vdp_hw_cursor_enable(0);
 }
 
 static void show_mouse(Workstation *wk, long x, long y)
 {
-    SWORD pos_x;
-    SWORD pos_y;
-    short screen_width;
-    short screen_height;
+    long pos_x;
+    long pos_y;
 
     ensure_cursor_initialized();
 
-    pos_x = (SWORD)(x & 0xffffL);
-    pos_y = (SWORD)y;
+    pos_x = (short)(x & 0xffffL);
+    pos_y = (short)y;
     if (wk) {
         pos_x -= wk->mouse.hotspot.x;
         pos_y -= wk->mouse.hotspot.y;
-        screen_width = wk->screen.mfdb.width;
-        screen_height = wk->screen.mfdb.height;
-        pos_x = scale_axis(pos_x, screen_width, GFXVGA_CURSOR_OVERLAY_WIDTH);
-        pos_y = scale_axis(pos_y, screen_height, GFXVGA_CURSOR_OVERLAY_HEIGHT);
     }
 
-    vdp_set_sprite_index(0);
-    vdp_write_sprite_x(pos_x);
-    vdp_write_sprite_y(pos_y);
-    vdp_write_sprite_tile(0);
-    vdp_write_sprite_attr(0, 0, 0, 0);
+    if (pos_x < 0)
+        pos_x = 0;
+    else if (pos_x > GFXVGA_CURSOR_MAX_X)
+        pos_x = GFXVGA_CURSOR_MAX_X;
+
+    if (pos_y < 0)
+        pos_y = 0;
+    else if (pos_y > GFXVGA_CURSOR_MAX_Y)
+        pos_y = GFXVGA_CURSOR_MAX_Y;
+
+    vdp_hw_cursor_pos((UWORD)pos_x, (UWORD)pos_y);
+    vdp_hw_cursor_enable(1);
 }
 
 long CDECL c_mouse_draw(Workstation *wk, long x, long y, Mouse *mouse)

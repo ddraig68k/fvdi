@@ -114,6 +114,15 @@ extern UWORD *g_vdp_memory_base;
 
 #define REG_INT_LINE_Y          0xA8    // Line interrupt control value
 
+#define REG_HW_CURSOR_CTRL      0xB0
+#define REG_HW_CURSOR_X         0xB2
+#define REG_HW_CURSOR_Y         0xB4
+#define REG_HW_CURSOR_ADDR      0xB6
+#define REG_HW_CURSOR_DATA      0xB8
+#define REG_HW_CURSOR_COL1      0xBA
+#define REG_HW_CURSOR_COL2      0xBC
+#define REG_HW_CURSOR_COL3      0xBE
+
 #define CMD_NONE                0x00   
 #define CMD_FILL_RECT           0x01
 #define CMD_DRAW_LINE           0x02
@@ -246,6 +255,11 @@ void vdp_write_text(UWORD posx, UWORD posy, const char *text);
 void vdp_write_char(UWORD posx, UWORD posy, UWORD text);
 void vdp_cursor_pos(int x, int y);
 void vdp_cursor_size(int top, int bottom);
+void vdp_hw_cursor_enable(UWORD enable);
+void vdp_hw_cursor_pos(UWORD x, UWORD y);
+void vdp_hw_cursor_addr(UWORD addr);
+void vdp_hw_cursor_data(UWORD data);
+void vdp_hw_cursor_colors(UWORD col1, UWORD col2, UWORD col3);
 
 // Draw command base address
 void vdp_set_drawbase_addr(ULONG addr);

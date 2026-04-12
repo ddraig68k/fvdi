@@ -203,7 +203,7 @@ long CDECL initialize(Virtual *vwk)
     access->funcs.cat(".\r\n", str);
     access->funcs.puts(str);
 
-	vdp_set_control(DISPMODE_BITMAPHIRES | SPRITE_ENABLE);
+    vdp_set_control(DISPMODE_BITMAPHIRES);
 
     device.byte_width = wk->screen.wrap;
     device.address = wk->screen.mfdb.address;

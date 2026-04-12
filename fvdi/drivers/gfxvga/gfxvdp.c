@@ -58,6 +58,10 @@ void vdp_init(ULONG regaddr, ULONG memaddr)
     vdp_tilemap4_scroll_y(0);
     vdp_tilemap4_linescr_mode(0);
 
+    vdp_hw_cursor_enable(0);
+    vdp_hw_cursor_addr(0);
+    vdp_hw_cursor_colors(0, 0, 0);
+
 }
 
 UWORD vdp_get_status(void)
@@ -168,6 +172,34 @@ void vdp_cursor_size(int top, int bottom)
     pos = (pos << 8) | (top & 0x00FF);
 
     VDP_REG_WRITE(REG_CURSOR_SIZE, pos);
+}
+
+void vdp_hw_cursor_enable(UWORD enable)
+{
+    VDP_REG_WRITE(REG_HW_CURSOR_CTRL, (enable & 1));
+}
+
+void vdp_hw_cursor_pos(UWORD x, UWORD y)
+{
+    VDP_REG_WRITE(REG_HW_CURSOR_X, x);
+    VDP_REG_WRITE(REG_HW_CURSOR_Y, y);
+}
+
+void vdp_hw_cursor_addr(UWORD addr)
+{
+    VDP_REG_WRITE(REG_HW_CURSOR_ADDR, (addr & 0x7F));
+}
+
+void vdp_hw_cursor_data(UWORD data)
+{
+    VDP_REG_WRITE(REG_HW_CURSOR_DATA, data);
+}
+
+void vdp_hw_cursor_colors(UWORD col1, UWORD col2, UWORD col3)
+{
+    VDP_REG_WRITE(REG_HW_CURSOR_COL1, col1);
+    VDP_REG_WRITE(REG_HW_CURSOR_COL2, col2);
+    VDP_REG_WRITE(REG_HW_CURSOR_COL3, col3);
 }
 
 void vdp_set_framebuffer_addr(ULONG addr)
