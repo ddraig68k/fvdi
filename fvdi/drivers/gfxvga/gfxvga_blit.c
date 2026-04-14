@@ -383,6 +383,7 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     int src_wrap, dst_wrap;
     int src_line_add, dst_line_add;
     unsigned long src_pos, dst_pos;
+    int from_screen;
     int to_screen;
 
     GFX_CP_ENTER(CP_BLIT_AREA);
@@ -432,12 +433,14 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
              dst ? dst->standard : 0,
              dst ? dst->bitplanes : 0));
 
+    from_screen = 0;
     if (!src || !src->address || (src->address == wk->screen.mfdb.address)) {       /* From screen? */
         src_wrap = wk->screen.wrap;
         if (!(src_addr = wk->screen.shadow.address))
             src_addr = wk->screen.mfdb.address;
         src_max_w = wk->screen.mfdb.width;
         src_max_h = wk->screen.mfdb.height;
+        from_screen = 1;
     } else {
         src_wrap = (long)src->wdwidth * 2 * src->bitplanes;
         src_addr = src->address;
@@ -497,6 +500,49 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
         h = dst_max_h - dst_y;
     }
     if (w <= 0 || h <= 0) {
+        GFX_CP_EXIT(CP_BLIT_AREA);
+        return 1;
+    }
+
+    /*
+     * Use VDP hardware 2D copy for screen->screen plain copies.
+     * Decide by MFDB identity (from_screen/to_screen), not by effective source
+     * pointer, so shadow-buffer presence does not randomly disable acceleration.
+     * For non-overlapping or forward-safe copies, use direct copy.
+     * For overlapping unsafe-backward copies, use staging buffer (still fully HW accelerated).
+     * Fall back to CPU blit only for non-copy ROPs or shadow buffer sources.
+     */
+    if (from_screen && to_screen && operation == 3) {
+        int overlap;
+        int forward_safe;
+
+        overlap = !((dst_x + w <= src_x) ||
+                    (src_x + w <= dst_x) ||
+                    (dst_y + h <= src_y) ||
+                    (src_y + h <= dst_y));
+
+        forward_safe = (dst_y < src_y) ||
+                       ((dst_y == src_y) && (dst_x <= src_x));
+
+        ULONG screen_base_word;
+
+        screen_base_word = ((ULONG)wk->screen.mfdb.address - (ULONG)g_vdp_memory_base) >> 1;
+        
+        if (!overlap || forward_safe) {
+            /* Direct copy is safe - no overlap or copy direction is forward */
+            vdp_copy_2d(screen_base_word, screen_base_word,
+                        (UWORD)src_x, (UWORD)src_y,
+                        (UWORD)dst_x, (UWORD)dst_y,
+                        (UWORD)w, (UWORD)h,
+                        (UWORD)wk->screen.mfdb.width);
+        } else {
+            /* Overlapping with unsafe backward direction - use staging buffer */
+            vdp_copy_2d_via_staging(screen_base_word, screen_base_word,
+                                    (UWORD)src_x, (UWORD)src_y,
+                                    (UWORD)dst_x, (UWORD)dst_y,
+                                    (UWORD)w, (UWORD)h,
+                                    (UWORD)wk->screen.mfdb.width);
+        }
         GFX_CP_EXIT(CP_BLIT_AREA);
         return 1;
     }

@@ -8,7 +8,7 @@
 #include "gfxvdp.h"
 
 
-#define KPRINTF_ADDRESS 0x805194
+#define KPRINTF_ADDRESS 0x805138
 typedef int (*kprintf_func_t)(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 extern kprintf_func_t my_kprintf;
 extern short gfx_checkpoint;

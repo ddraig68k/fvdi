@@ -718,3 +718,34 @@ void vdp_copy_2d(
 
     VDP_REG_WRITE(REG_COMMAND, CMD_MEM_COPY_2D);
 }
+
+
+void vdp_copy_2d_via_staging(
+    ULONG src_base_word,
+    ULONG dst_base_word,
+    UWORD src_x,
+    UWORD src_y,
+    UWORD dst_x,
+    UWORD dst_y,
+    UWORD width_pixels,
+    UWORD height_lines,
+    UWORD screen_width_pixels)
+{
+    /* Offscreen staging buffer in VRAM for handling overlapping copies.
+     * Use VDP 2D copy to avoid unsafe backward CPU blits entirely.
+     * Pattern: source→staging (always forward), then staging→destination (always forward).
+     */
+    ULONG staging_base_word = VDP_STAGING_BUFFER_OFFSET >> 1;  /* Convert byte offset to word offset */
+
+    /* First copy: source to staging buffer (0,0) */
+    vdp_copy_2d(src_base_word, staging_base_word,
+                src_x, src_y, 0, 0,
+                width_pixels, height_lines,
+                screen_width_pixels);
+
+    /* Second copy: staging buffer to destination */
+    vdp_copy_2d(staging_base_word, dst_base_word,
+                0, 0, dst_x, dst_y,
+                width_pixels, height_lines,
+                screen_width_pixels);
+}

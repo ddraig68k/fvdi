@@ -24,6 +24,10 @@ extern UWORD *g_vdp_memory_base;
 
 #define VDP_TEXTBUF_SIZE  4800  /* Max of 80x60*/
 
+/* Offscreen staging buffer for overlapping blits.
+ * Placed at 1MB (0x100000 bytes) into VRAM, leaving plenty of room for framebuffer and rest. */
+#define VDP_STAGING_BUFFER_OFFSET  0x100000  /* Byte offset in VRAM */
+
 #define VDP_REG_WRITE(x, y)     (*((volatile UWORD *) (g_vdp_reg_base + (x))) = (y))
 #define VDP_REG_READ(x)         (*((volatile UWORD *) (g_vdp_reg_base + (x))))
 
@@ -318,6 +322,20 @@ void vdp_sprite_data_addr(ULONG addr);
 
 void vdp_vram_write(ULONG addr, const UWORD *src, size_t size);
 void vdp_init_tile_layer(tile_layer_t *layer);
+
+/* Hardware 2D copy with optional staging buffer for unsafe overlaps.
+ * Copies source rectangle to destination using VDP 2D engine.
+ * If overlapping and direction would corrupt source, uses offscreen staging buffer. */
+void vdp_copy_2d_via_staging(
+    ULONG src_base_word,
+    ULONG dst_base_word,
+    UWORD src_x,
+    UWORD src_y,
+    UWORD dst_x,
+    UWORD dst_y,
+    UWORD width_pixels,
+    UWORD height_lines,
+    UWORD screen_width_pixels);
 
 void vdp_disable_all_sprites(void);
 
