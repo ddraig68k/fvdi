@@ -407,12 +407,10 @@ c_blit_area(Virtual *vwk, MFDB *src, long src_x, long src_y,
     DPRINTF(("c_blit_area: entering op=%ld sx=%ld sy=%ld dx=%ld dy=%ld w=%ld h=%ld\n", operation, src_x, src_y, dst_x, dst_y, w, h));
 
     if (src && ((ULONG)src & 1UL)) {
-        my_kprintf("CP+09u srcmfdb=%lX\n", (ULONG)src);
         GFX_CP_EXIT(CP_BLIT_AREA);
         return -1;
     }
     if (dst && ((ULONG)dst & 1UL)) {
-        my_kprintf("CP+09u dstmfdb=%lX\n", (ULONG)dst);
         GFX_CP_EXIT(CP_BLIT_AREA);
         return -1;
     }

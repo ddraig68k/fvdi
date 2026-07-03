@@ -2,7 +2,7 @@
  * Initialization code for the Y Ddraig GfxVGA FVDI driver.
  */
 
-#define FVDI_DEBUG 1
+//#define FVDI_DEBUG 0
 
 #include "fvdi.h"
 #include "gfxvga.h"
@@ -203,7 +203,11 @@ long CDECL initialize(Virtual *vwk)
     access->funcs.cat(".\r\n", str);
     access->funcs.puts(str);
 
-    vdp_set_control(DISPMODE_BITMAPHIRES);
+    vdp_set_framebuffer_addr(0);
+    vdp_set_drawbase_addr(0);
+    vdp_set_draw_stride((UWORD)wk->screen.mfdb.width);
+    vdp_set_clip_rect(0, 0, (UWORD)(wk->screen.mfdb.width - 1), (UWORD)(wk->screen.mfdb.height - 1));
+    vdp_set_control(DISPMODE_BITMAPHIRES | DISP_DEPTH_RGB);
 
     device.byte_width = wk->screen.wrap;
     device.address = wk->screen.mfdb.address;
@@ -288,6 +292,12 @@ Virtual *CDECL opnwk(Virtual *vwk)
      * I did not yet find what I'm doing differently from other drivers (that apparently do not have this problem).
      */
     c_initialize_palette(vwk, 0, wk->screen.palette.size, default_vdi_colors, wk->screen.palette.colours);
+
+    vdp_set_framebuffer_addr(0);
+    vdp_set_drawbase_addr(0);
+    vdp_set_draw_stride((UWORD)wk->screen.mfdb.width);
+    vdp_set_clip_rect(0, 0, (UWORD)(wk->screen.mfdb.width - 1), (UWORD)(wk->screen.mfdb.height - 1));
+    vdp_set_control(DISPMODE_BITMAPHIRES | DISP_DEPTH_RGB);
 
     return 0;
 }

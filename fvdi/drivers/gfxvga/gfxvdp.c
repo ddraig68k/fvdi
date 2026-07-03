@@ -2,7 +2,8 @@
 #include "gfxvdp.h"
 
 ULONG g_vdp_reg_base = 0x00F7F500;
-UWORD *g_vdp_memory_base = 0x00A00000;
+UWORD *g_vdp_memory_base = (UWORD *)0x00A00000;
+UWORD *g_vdp_textmem_base = (UWORD *)0x00A00000;
 
 #define TILE_BANK_SHIFT(n)   ((n) * 3)   /* 4 tile layers, 3 bits each */
 #define TILE_BANK_MASK(n)    (0x07 << TILE_BANK_SHIFT(n))
@@ -16,10 +17,12 @@ void vdp_init(ULONG regaddr, ULONG memaddr)
     // Reset pointers to 0
     
     g_vdp_reg_base = regaddr;
-    g_vdp_memory_base = (UWORD *)memaddr;
+    g_vdp_memory_base = g_vdp_textmem_base = (UWORD *)memaddr;
 
     vdp_set_bitmap_palette(0);
     vdp_set_framebuffer_addr(0);
+    vdp_set_drawbase_addr(0);
+    vdp_set_text_base(0);
 
     vdp_disable_all_sprites();
     vdp_set_sprite_palette(0);
@@ -128,34 +131,36 @@ void vdp_wait_vblank_clear(void)
     }
 }
 
+void vdp_set_text_base(ULONG addr)
+{
+    ULONG word_addr = addr >> 1;
+
+    VDP_REG_WRITE(REG_TEXT_BASE_L, word_addr & 0xFFFF);
+    VDP_REG_WRITE(REG_TEXT_BASE_H, (word_addr >> 16) & 0x000F);
+    g_vdp_textmem_base = g_vdp_memory_base + (word_addr & 0x7FFFF);
+}
+
 void vdp_clear_text(void)
 {
     int count = VDP_TEXTBUF_SIZE;
-    VDP_REG_WRITE(REG_TEXT_ADDR, 0);  // Set the text buffer address
+    UWORD cell = vdp_make_text_cell(' ', VDP_TEXT_FG_WHITE, 0);
 
     while (count--)
-    {
-        VDP_REG_WRITE(REG_TEXT_DATA, vdp_make_text_cell(' ', VDP_TEXT_FG_WHITE, 0));
-    }
+        g_vdp_textmem_base[count] = cell;
 }
 
 void vdp_write_text(UWORD posx, UWORD posy, const char *text)
 {
-    UWORD pos = (posy * 80) + posx;
+    ULONG pos = (posy * 80) + posx;
 
-    VDP_REG_WRITE(REG_TEXT_ADDR, pos);
     while (*text != 0)
-    {
-        VDP_REG_WRITE(REG_TEXT_DATA, vdp_make_text_cell((UBYTE)*text++, VDP_TEXT_FG_WHITE, 0));
-    }
+        g_vdp_textmem_base[pos++] = vdp_make_text_cell((UBYTE)*text++, VDP_TEXT_FG_WHITE, 0);
 }
 
 void vdp_write_char(UWORD posx, UWORD posy, UWORD text)
 {
-    UWORD pos = (posy * 80) + posx;
-
-    VDP_REG_WRITE(REG_TEXT_ADDR, pos);
-    VDP_REG_WRITE(REG_TEXT_DATA, text);
+    ULONG pos = (posy * 80) + posx;
+    g_vdp_textmem_base[pos] = text;
 }
 
 void vdp_cursor_pos(int x, int y)
@@ -248,6 +253,19 @@ ULONG vdp_get_drawbase_addr(void)
     addr = VDP_REG_READ(REG_DRAW_BASE_H);
     addr = (addr << 16) | VDP_REG_READ(REG_DRAW_BASE_L);
     return addr << 1;
+}
+
+void vdp_set_draw_stride(UWORD stride)
+{
+    VDP_REG_WRITE(REG_DRAW_STRIDE, stride);
+}
+
+void vdp_set_clip_rect(UWORD x0, UWORD y0, UWORD x1, UWORD y1)
+{
+    VDP_REG_WRITE(REG_CLIP_X0, x0);
+    VDP_REG_WRITE(REG_CLIP_Y0, y0);
+    VDP_REG_WRITE(REG_CLIP_X1, x1);
+    VDP_REG_WRITE(REG_CLIP_Y1, y1);
 }
 
 void vdp_set_drawmode(UWORD mode)
